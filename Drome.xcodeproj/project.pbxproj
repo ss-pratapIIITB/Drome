@@ -1,0 +1,453 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		01EC5FCE9DC2834C6CA2E9CC /* AddressBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDDCD189B7002A7BDB4464D /* AddressBarView.swift */; };
+		100EC39E6A4C4CB3580F9A6C /* TabGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86CE86AC380DDE1BA9ABE8C9 /* TabGridView.swift */; };
+		4B60DA7CCC425C443D91628B /* DromeWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D387D5A823F9AA0D97293F72 /* DromeWebView.swift */; };
+		4FB6570CE287505BE233B0AD /* DeveloperToolsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CAB159E7E15BC63F3CD9DF /* DeveloperToolsViewModel.swift */; };
+		500B2E4BB075E82352D4C41B /* BlockRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2607DBF82ABC8FC0EA38D564 /* BlockRule.swift */; };
+		50D1C1F434BC5FDC1EC6102B /* NetworkEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97AD4DF60F434CC5F82A2208 /* NetworkEntry.swift */; };
+		58E826DE61BB0C93EA9143AD /* ContentBlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 687128D3FBA2AA8E1D65E866 /* ContentBlocker.swift */; };
+		69CE11B10C3FBD89F6A584A7 /* ConsoleEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22708312843519B9DDC1094F /* ConsoleEntry.swift */; };
+		7018037059F1CD4B5C3EF985 /* BrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E88DBD9E4031F241BE5E3E0 /* BrowserViewModel.swift */; };
+		71247E4DAE0891970EE905DD /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65223219DD91D8ABE455B6AD /* SettingsView.swift */; };
+		8B30DAE980DB73B1C154B564 /* DeveloperToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A8F595022539BC48BE73AD /* DeveloperToolsView.swift */; };
+		9AA89917A18533CB87F42318 /* DromeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160100EC20EC6C4743769630 /* DromeApp.swift */; };
+		A0367096D3724122C6AE0570 /* WebViewCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE29DD84655FF4E627A2C1C /* WebViewCoordinator.swift */; };
+		AC11B7F56B9AC033F7208B70 /* JavaScriptStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72634340D62857CCCF84CD52 /* JavaScriptStrings.swift */; };
+		AC2A1DF6DE168B8A9D2EF013 /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3897C1E1B723E9AAB1033B8A /* BrowserView.swift */; };
+		B2B0C109BE3C3F497E748129 /* AIContentFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B132409A2ADA6642FA16408 /* AIContentFilter.swift */; };
+		B4AFAE7573881693A7F6D8CD /* FoundationModels.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 12452C46DE7E42BA3843F9E5 /* FoundationModels.framework */; };
+		D0862BBAAAEECAAF2E979A0D /* WebsiteBlockerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D79E988E2FA950DA88B1A7 /* WebsiteBlockerView.swift */; };
+		D89C93CECC19F17AD44AB4A4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFC7461A315578535A3164F /* ContentView.swift */; };
+		F3ADB354D96763E100DA42B2 /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */; };
+		FE1D6A161855A064AD17EE5E /* JavaScriptInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C328FE99767FC874ACE1E59 /* JavaScriptInjector.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0B132409A2ADA6642FA16408 /* AIContentFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIContentFilter.swift; sourceTree = "<group>"; };
+		12452C46DE7E42BA3843F9E5 /* FoundationModels.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FoundationModels.framework; path = System/Library/Frameworks/FoundationModels.framework; sourceTree = SDKROOT; };
+		160100EC20EC6C4743769630 /* DromeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DromeApp.swift; sourceTree = "<group>"; };
+		22708312843519B9DDC1094F /* ConsoleEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleEntry.swift; sourceTree = "<group>"; };
+		2607DBF82ABC8FC0EA38D564 /* BlockRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRule.swift; sourceTree = "<group>"; };
+		3897C1E1B723E9AAB1033B8A /* BrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserView.swift; sourceTree = "<group>"; };
+		5C328FE99767FC874ACE1E59 /* JavaScriptInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptInjector.swift; sourceTree = "<group>"; };
+		65223219DD91D8ABE455B6AD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		687128D3FBA2AA8E1D65E866 /* ContentBlocker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentBlocker.swift; sourceTree = "<group>"; };
+		72634340D62857CCCF84CD52 /* JavaScriptStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptStrings.swift; sourceTree = "<group>"; };
+		7E88DBD9E4031F241BE5E3E0 /* BrowserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserViewModel.swift; sourceTree = "<group>"; };
+		86CE86AC380DDE1BA9ABE8C9 /* TabGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabGridView.swift; sourceTree = "<group>"; };
+		91CAB159E7E15BC63F3CD9DF /* DeveloperToolsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolsViewModel.swift; sourceTree = "<group>"; };
+		93D79E988E2FA950DA88B1A7 /* WebsiteBlockerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebsiteBlockerView.swift; sourceTree = "<group>"; };
+		97AD4DF60F434CC5F82A2208 /* NetworkEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkEntry.swift; sourceTree = "<group>"; };
+		97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
+		A8F834EA9E316486106C646E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AAE29DD84655FF4E627A2C1C /* WebViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewCoordinator.swift; sourceTree = "<group>"; };
+		B3A8F595022539BC48BE73AD /* DeveloperToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolsView.swift; sourceTree = "<group>"; };
+		BCFC7461A315578535A3164F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		C80B8A0600D72899A0373A68 /* Drome.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Drome.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D387D5A823F9AA0D97293F72 /* DromeWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DromeWebView.swift; sourceTree = "<group>"; };
+		EEDDCD189B7002A7BDB4464D /* AddressBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddressBarView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7F89C91B8CC92D928C896A77 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B4AFAE7573881693A7F6D8CD /* FoundationModels.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		18BE726D9BC36C54B9A6A2BC = {
+			isa = PBXGroup;
+			children = (
+				DF72E53659CE5EB03BFA89F7 /* Drome */,
+				B22DF2C890B94DD3F86C1F56 /* Frameworks */,
+				1FF1E03EB2FF940595C66C2D /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1FF1E03EB2FF940595C66C2D /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				C80B8A0600D72899A0373A68 /* Drome.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		56A5159F163A8433C64919E7 /* JavaScript */ = {
+			isa = PBXGroup;
+			children = (
+				5C328FE99767FC874ACE1E59 /* JavaScriptInjector.swift */,
+				72634340D62857CCCF84CD52 /* JavaScriptStrings.swift */,
+			);
+			path = JavaScript;
+			sourceTree = "<group>";
+		};
+		80C4E0A042BC7CB391C1389C /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				7E88DBD9E4031F241BE5E3E0 /* BrowserViewModel.swift */,
+				91CAB159E7E15BC63F3CD9DF /* DeveloperToolsViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		854B717E43FEC971DAE2EFF4 /* AI */ = {
+			isa = PBXGroup;
+			children = (
+				0B132409A2ADA6642FA16408 /* AIContentFilter.swift */,
+			);
+			path = AI;
+			sourceTree = "<group>";
+		};
+		9FB53235EAD208697F1D24BD /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				EEDDCD189B7002A7BDB4464D /* AddressBarView.swift */,
+				3897C1E1B723E9AAB1033B8A /* BrowserView.swift */,
+				BCFC7461A315578535A3164F /* ContentView.swift */,
+				B3A8F595022539BC48BE73AD /* DeveloperToolsView.swift */,
+				65223219DD91D8ABE455B6AD /* SettingsView.swift */,
+				86CE86AC380DDE1BA9ABE8C9 /* TabGridView.swift */,
+				93D79E988E2FA950DA88B1A7 /* WebsiteBlockerView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		ADD9ED57B0BC894995264462 /* WebKit */ = {
+			isa = PBXGroup;
+			children = (
+				687128D3FBA2AA8E1D65E866 /* ContentBlocker.swift */,
+				D387D5A823F9AA0D97293F72 /* DromeWebView.swift */,
+				AAE29DD84655FF4E627A2C1C /* WebViewCoordinator.swift */,
+			);
+			path = WebKit;
+			sourceTree = "<group>";
+		};
+		B22DF2C890B94DD3F86C1F56 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				12452C46DE7E42BA3843F9E5 /* FoundationModels.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		BB1CBF99F8FA764263DD16D5 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				2607DBF82ABC8FC0EA38D564 /* BlockRule.swift */,
+				97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */,
+				22708312843519B9DDC1094F /* ConsoleEntry.swift */,
+				97AD4DF60F434CC5F82A2208 /* NetworkEntry.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		DF72E53659CE5EB03BFA89F7 /* Drome */ = {
+			isa = PBXGroup;
+			children = (
+				160100EC20EC6C4743769630 /* DromeApp.swift */,
+				A8F834EA9E316486106C646E /* Info.plist */,
+				854B717E43FEC971DAE2EFF4 /* AI */,
+				56A5159F163A8433C64919E7 /* JavaScript */,
+				BB1CBF99F8FA764263DD16D5 /* Models */,
+				80C4E0A042BC7CB391C1389C /* ViewModels */,
+				9FB53235EAD208697F1D24BD /* Views */,
+				ADD9ED57B0BC894995264462 /* WebKit */,
+			);
+			path = Drome;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		EE75DD6986B511121D1CEB08 /* Drome */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D2B293DA0BC5303B68991743 /* Build configuration list for PBXNativeTarget "Drome" */;
+			buildPhases = (
+				447D5588C533FBCD90015F99 /* Sources */,
+				7F89C91B8CC92D928C896A77 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Drome;
+			packageProductDependencies = (
+			);
+			productName = Drome;
+			productReference = C80B8A0600D72899A0373A68 /* Drome.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E80B08AC1B7D6B07DBBEA6FC /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2650;
+				TargetAttributes = {
+					EE75DD6986B511121D1CEB08 = {
+						DevelopmentTeam = PAZR439BX6;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = BB8D8C2C06B714589AA59BB3 /* Build configuration list for PBXProject "Drome" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 18BE726D9BC36C54B9A6A2BC;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				EE75DD6986B511121D1CEB08 /* Drome */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		447D5588C533FBCD90015F99 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B2B0C109BE3C3F497E748129 /* AIContentFilter.swift in Sources */,
+				01EC5FCE9DC2834C6CA2E9CC /* AddressBarView.swift in Sources */,
+				500B2E4BB075E82352D4C41B /* BlockRule.swift in Sources */,
+				F3ADB354D96763E100DA42B2 /* BrowserTab.swift in Sources */,
+				AC2A1DF6DE168B8A9D2EF013 /* BrowserView.swift in Sources */,
+				7018037059F1CD4B5C3EF985 /* BrowserViewModel.swift in Sources */,
+				69CE11B10C3FBD89F6A584A7 /* ConsoleEntry.swift in Sources */,
+				58E826DE61BB0C93EA9143AD /* ContentBlocker.swift in Sources */,
+				D89C93CECC19F17AD44AB4A4 /* ContentView.swift in Sources */,
+				8B30DAE980DB73B1C154B564 /* DeveloperToolsView.swift in Sources */,
+				4FB6570CE287505BE233B0AD /* DeveloperToolsViewModel.swift in Sources */,
+				9AA89917A18533CB87F42318 /* DromeApp.swift in Sources */,
+				4B60DA7CCC425C443D91628B /* DromeWebView.swift in Sources */,
+				FE1D6A161855A064AD17EE5E /* JavaScriptInjector.swift in Sources */,
+				AC11B7F56B9AC033F7208B70 /* JavaScriptStrings.swift in Sources */,
+				50D1C1F434BC5FDC1EC6102B /* NetworkEntry.swift in Sources */,
+				71247E4DAE0891970EE905DD /* SettingsView.swift in Sources */,
+				100EC39E6A4C4CB3580F9A6C /* TabGridView.swift in Sources */,
+				A0367096D3724122C6AE0570 /* WebViewCoordinator.swift in Sources */,
+				D0862BBAAAEECAAF2E979A0D /* WebsiteBlockerView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		0CD843C649429DBB7A82085B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = PAZR439BX6;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.surendrapratap.drome;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		0FC7A680FF2994DD13ED38FF /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = PAZR439BX6;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.surendrapratap.drome;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = targeted;
+				SWIFT_VERSION = 5;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		2D6C77E465E5CA1B230D1B8D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = PAZR439BX6;
+				INFOPLIST_FILE = Drome/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.surendrapratap.drome;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		EE5292879A681BAB832C911D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = PAZR439BX6;
+				INFOPLIST_FILE = Drome/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.surendrapratap.drome;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BB8D8C2C06B714589AA59BB3 /* Build configuration list for PBXProject "Drome" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0CD843C649429DBB7A82085B /* Debug */,
+				0FC7A680FF2994DD13ED38FF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D2B293DA0BC5303B68991743 /* Build configuration list for PBXNativeTarget "Drome" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EE5292879A681BAB832C911D /* Debug */,
+				2D6C77E465E5CA1B230D1B8D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E80B08AC1B7D6B07DBBEA6FC /* Project object */;
+}

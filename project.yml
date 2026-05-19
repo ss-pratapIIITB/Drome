@@ -1,0 +1,43 @@
+name: Drome
+options:
+  bundleIdPrefix: com.surendrapratap
+  deploymentTarget:
+    iOS: "18.0"
+  xcodeVersion: "26.5"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5"
+    IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+    DEVELOPMENT_TEAM: PAZR439BX6
+    CODE_SIGN_STYLE: Automatic
+    PRODUCT_BUNDLE_IDENTIFIER: com.surendrapratap.drome
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    SWIFT_STRICT_CONCURRENCY: targeted
+
+targets:
+  Drome:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: Drome
+        excludes:
+          - "**/*.js"
+    resources:
+      - path: Drome/JavaScript/drome-bridge.js
+      - path: Drome/JavaScript/drome-readability.js
+    dependencies:
+      - sdk: FoundationModels.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.surendrapratap.drome
+        DEVELOPMENT_TEAM: PAZR439BX6
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_FILE: Drome/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    scheme:
+      testTargets: []
