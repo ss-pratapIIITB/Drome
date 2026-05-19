@@ -9,6 +9,10 @@ final class WebViewCoordinator: NSObject {
     private var aiFilter: AIContentFilter?
     private var aiAnalysisTask: Task<Void, Never>?
 
+    // Live DOM mutation handling — debounced queue
+    private var mutationDebounceTask: Task<Void, Never>?
+    private var pendingMutations: [(text: String, xpath: String)] = []
+
     init(tab: BrowserTab, devToolsVM: DeveloperToolsViewModel, browserVM: BrowserViewModel) {
         self.tab = tab
         self.devToolsVM = devToolsVM
@@ -67,6 +71,10 @@ extension WebViewCoordinator: WKNavigationDelegate {
         // Cancel any in-flight AI analysis and clear old labels
         aiAnalysisTask?.cancel()
         aiAnalysisTask = nil
+        mutationDebounceTask?.cancel()
+        mutationDebounceTask = nil
+        pendingMutations.removeAll()
+        webView.evaluateJavaScript(JavaScriptInjector.stopMutationObserverJS(), completionHandler: nil)
         webView.evaluateJavaScript(JavaScriptInjector.clearAILabelsJS(), completionHandler: nil)
         devToolsVM?.clearAIResults()
         browserVM?.readingModeActive = false
@@ -124,6 +132,9 @@ extension WebViewCoordinator: WKNavigationDelegate {
             let wv = webView
             aiAnalysisTask = Task { @MainActor in
                 await filter?.analyzeAndLabel(webView: wv, devToolsVM: dvm, removeUnsafe: removeUnsafe)
+                // After initial pass, watch for dynamically injected content
+                guard !Task.isCancelled else { return }
+                wv.evaluateJavaScript(JavaScriptInjector.injectMutationObserverJS(), completionHandler: nil)
             }
         }
     }
@@ -270,6 +281,8 @@ extension WebViewCoordinator: WKScriptMessageHandler {
                 handleConsoleMessage(message.body)
             case "dromeNetwork":
                 handleNetworkMessage(message.body)
+            case "dromeMutation":
+                handleMutationMessage(message.body)
             case "dromeAIFilter":
                 break
             default:
@@ -297,6 +310,43 @@ extension WebViewCoordinator: WKScriptMessageHandler {
             tabID: tab?.id ?? UUID()
         )
         devToolsVM?.addConsoleEntry(entry)
+    }
+
+    private func handleMutationMessage(_ body: Any) {
+        guard let dict = body as? [String: Any],
+              let text = dict["text"] as? String,
+              let xpath = dict["xpath"] as? String,
+              browserVM?.aiFilterEnabled == true else { return }
+
+        // Deduplicate — skip if we already have a result for this xpath
+        if devToolsVM?.aiResults.contains(where: { $0.xpath == xpath }) == true { return }
+
+        pendingMutations.append((text: text, xpath: xpath))
+
+        // Debounce: reset the 2s timer on every incoming mutation
+        mutationDebounceTask?.cancel()
+        let mutations = pendingMutations
+        let filter = aiFilter
+        let dvm = devToolsVM
+        let removeUnsafe = browserVM?.aiRemoveUnsafe ?? false
+        guard let wv = tab?.webView else { return }
+
+        mutationDebounceTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            self.pendingMutations.removeAll()
+            // Process up to 10 new blocks per batch to avoid overload
+            for item in mutations.prefix(10) {
+                guard !Task.isCancelled else { break }
+                await filter?.classifySingleBlock(
+                    text: item.text,
+                    xpath: item.xpath,
+                    webView: wv,
+                    devToolsVM: dvm,
+                    removeUnsafe: removeUnsafe
+                )
+            }
+        }
     }
 
     private func handleNetworkMessage(_ body: Any) {

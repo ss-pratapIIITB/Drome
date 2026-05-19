@@ -243,6 +243,77 @@ enum JavaScriptInjector {
         """
     }
 
+    /// Inject a MutationObserver that fires dromeMutation messages for newly added text nodes
+    /// not yet labeled. Debouncing happens on the Swift side.
+    static func injectMutationObserverJS(minLength: Int = 25) -> String {
+        """
+        (function() {
+            if (window.__dromeMutationObserver) return; // already running
+
+            const skipTags = new Set(['SCRIPT','STYLE','NOSCRIPT','CODE','PRE','SVG','MATH']);
+
+            function getXPath(el) {
+                if (!el || el === document.body) return '/html/body';
+                const parts = [];
+                let node = el;
+                while (node && node.nodeType === 1 && node !== document.body) {
+                    let idx = 1, sib = node.previousSibling;
+                    while (sib) { if (sib.nodeType === 1 && sib.tagName === node.tagName) idx++; sib = sib.previousSibling; }
+                    parts.unshift(node.tagName.toLowerCase() + (idx > 1 ? '[' + idx + ']' : ''));
+                    node = node.parentElement;
+                }
+                return parts.length ? '/html/body/' + parts.join('/') : '/html/body';
+            }
+
+            const observer = new MutationObserver(function(mutations) {
+                const seen = new Set();
+                for (const mut of mutations) {
+                    for (const node of mut.addedNodes) {
+                        // Walk added subtree for text nodes
+                        (function walk(n) {
+                            if (!n) return;
+                            if (n.nodeType === Node.ELEMENT_NODE) {
+                                if (skipTags.has(n.tagName)) return;
+                                const s = window.getComputedStyle(n);
+                                if (s.display === 'none' || s.visibility === 'hidden') return;
+                                for (const c of n.childNodes) walk(c);
+                            } else if (n.nodeType === Node.TEXT_NODE) {
+                                const text = n.textContent.trim();
+                                if (text.length < \(minLength)) return;
+                                const el = n.parentElement;
+                                if (!el || el.hasAttribute('data-drome-safe')) return;
+                                const xpath = getXPath(el);
+                                if (seen.has(xpath)) return;
+                                seen.add(xpath);
+                                try {
+                                    window.webkit.messageHandlers.dromeMutation.postMessage({
+                                        text: text.slice(0, 500),
+                                        xpath: xpath
+                                    });
+                                } catch(e) {}
+                            }
+                        })(node);
+                    }
+                }
+            });
+
+            observer.observe(document.body, { childList: true, subtree: true });
+            window.__dromeMutationObserver = observer;
+        })();
+        """
+    }
+
+    static func stopMutationObserverJS() -> String {
+        """
+        (function() {
+            if (window.__dromeMutationObserver) {
+                window.__dromeMutationObserver.disconnect();
+                delete window.__dromeMutationObserver;
+            }
+        })();
+        """
+    }
+
     static func clearAILabelsJS() -> String {
         """
         (function() {

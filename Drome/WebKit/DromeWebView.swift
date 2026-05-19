@@ -55,6 +55,7 @@ struct DromeWebView: UIViewRepresentable {
         ucc.add(coordinator, name: "dromeConsole")
         ucc.add(coordinator, name: "dromeNetwork")
         ucc.add(coordinator, name: "dromeAIFilter")
+        ucc.add(coordinator, name: "dromeMutation")
 
         // Inject bridge at document start
         ucc.addUserScript(WKUserScript(

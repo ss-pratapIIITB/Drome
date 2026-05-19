@@ -113,15 +113,19 @@ final class AIContentFilter {
             let (isSafe, reason): (Bool, String)
             let method: String
 
-            if words <= 3 {
-                // Very short — not enough signal for AI, use keywords
-                (isSafe, reason) = classifyWithHeuristics(text: cleanedText)
+            // Always run keyword pre-filter first — hard overrides FM
+            let (kwSafe, kwReason) = classifyWithHeuristics(text: cleanedText)
+            if !kwSafe {
+                (isSafe, reason) = (false, kwReason)
+                method = "kw"
+            } else if words <= 3 {
+                (isSafe, reason) = (true, "Safe content")
                 method = "kw"
             } else if useAI, #available(iOS 26.0, *) {
                 (isSafe, reason) = await classifyWithFoundationModels(text: truncated, devToolsVM: devToolsVM)
                 method = "ai"
             } else {
-                (isSafe, reason) = classifyWithHeuristics(text: cleanedText)
+                (isSafe, reason) = (kwSafe, kwReason)
                 method = "kw"
             }
 
@@ -228,6 +232,11 @@ final class AIContentFilter {
             ("overdose", "Self-harm"), ("terrorist", "Terrorism"),
             ("horrifying", "Fear-inducing"), ("terrifying", "Fear-inducing"),
             ("devastating", "Alarming"), ("death toll", "Disaster"),
+            ("nude", "Adult content"), ("naked", "Adult content"),
+            ("nsfw", "Adult content"), ("porn", "Adult content"),
+            ("sex tape", "Adult content"), ("leaked photos", "Privacy violation"),
+            ("explicit", "Adult content"), ("onlyfans", "Adult content"),
+            ("dead body", "Violence/death"), ("bodies found", "Violence/death"),
         ]
         let mediumRisk: [(String, String)] = [
             ("breaking news", "Breaking news"), ("crisis", "Crisis"),
@@ -237,6 +246,7 @@ final class AIContentFilter {
             ("scandal", "Scandal"), ("outrage", "Outrage bait"),
             ("shocking", "Alarming"), ("act now", "Urgency pressure"),
             ("war", "Conflict"), ("arrested", "Crime"),
+            ("sexual", "Adult content"), ("strip", "Adult content"),
         ]
 
         var score = 0
@@ -248,6 +258,64 @@ final class AIContentFilter {
             return (false, reasons.prefix(2).joined(separator: " · "))
         }
         return (true, "Safe content")
+    }
+
+    // MARK: - Single block classifier (for live DOM mutations)
+
+    @MainActor
+    func classifySingleBlock(
+        text: String,
+        xpath: String,
+        webView: WKWebView,
+        devToolsVM: DeveloperToolsViewModel?,
+        removeUnsafe: Bool
+    ) async {
+        let cleaned = cleanText(text)
+        guard cleaned.count >= minBlockLength else { return }
+
+        let truncated = String(cleaned.prefix(maxBlockChars))
+        let words = wordCount(cleaned)
+
+        let (isSafe, reason): (Bool, String)
+        let method: String
+
+        // Mark pending first
+        webView.evaluateJavaScript(
+            JavaScriptInjector.markAllPendingJS(xpaths: [xpath]),
+            completionHandler: nil
+        )
+
+        let (kwSafe, kwReason) = classifyWithHeuristics(text: cleaned)
+        if !kwSafe {
+            (isSafe, reason) = (false, kwReason)
+            method = "kw"
+        } else if words <= 3 {
+            (isSafe, reason) = (true, "Safe content")
+            method = "kw"
+        } else if #available(iOS 26.0, *), SystemLanguageModel.default.availability == .available {
+            (isSafe, reason) = await classifyWithFoundationModels(text: truncated, devToolsVM: devToolsVM)
+            method = "ai"
+        } else {
+            (isSafe, reason) = (kwSafe, kwReason)
+            method = "kw"
+        }
+
+        let preview = String(cleaned.prefix(60))
+        log(devToolsVM, "[live/\(method)] \(isSafe ? "✅" : "🔴") \"\(preview)\" — \(reason)")
+
+        webView.evaluateJavaScript(
+            JavaScriptInjector.updateLabelJS(xpath: xpath, isSafe: isSafe, reason: reason),
+            completionHandler: nil
+        )
+        devToolsVM?.addAIResult(AIResult(xpath: xpath, isSafe: isSafe, reason: reason, preview: preview))
+
+        if !isSafe && removeUnsafe {
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            webView.evaluateJavaScript(
+                JavaScriptInjector.applyFilterJS(xpaths: [xpath]),
+                completionHandler: nil
+            )
+        }
     }
 
     // MARK: - AI Chat
