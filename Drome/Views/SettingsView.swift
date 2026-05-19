@@ -5,6 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var browserVM: BrowserViewModel
     @Environment(\.dismiss) var dismiss
     @State private var showClearConfirm = false
+    @State private var showInspectorHelp = false
 
     var body: some View {
         NavigationStack {
@@ -12,6 +13,9 @@ struct SettingsView: View {
                 Section("Privacy & Security") {
                     Toggle(isOn: $browserVM.adBlockEnabled) {
                         Label("Ad Blocking", systemImage: "hand.raised.fill")
+                    }
+                    .onChange(of: browserVM.adBlockEnabled) { _ in
+                        browserVM.reload()
                     }
                     Toggle(isOn: $browserVM.aiFilterEnabled) {
                         Label("AI Content Filter", systemImage: "sparkles.rectangle.stack")
@@ -27,6 +31,9 @@ struct SettingsView: View {
                     }
                     Toggle(isOn: $browserVM.blockPopups) {
                         Label("Block Pop-ups", systemImage: "xmark.rectangle")
+                    }
+                    .onChange(of: browserVM.blockPopups) { _ in
+                        browserVM.reload()
                     }
                     NavigationLink {
                         WebsiteBlockerView()
@@ -44,6 +51,9 @@ struct SettingsView: View {
                 Section("Browser") {
                     Toggle(isOn: $browserVM.jsEnabled) {
                         Label("JavaScript", systemImage: "chevron.left.forwardslash.chevron.right")
+                    }
+                    .onChange(of: browserVM.jsEnabled) { _ in
+                        browserVM.reload()
                     }
                     NavigationLink {
                         SearchEngineView()
@@ -68,7 +78,7 @@ struct SettingsView: View {
                             .foregroundStyle(.primary)
                     }
                     Button {
-                        // WKInspectable is enabled in DromeWebView — connect via Safari → Develop
+                        showInspectorHelp = true
                     } label: {
                         Label("Remote Web Inspector (via Safari)", systemImage: "safari")
                             .foregroundStyle(.primary)
@@ -110,6 +120,11 @@ struct SettingsView: View {
                     Button("Done", action: dismiss.callAsFunction)
                         .fontWeight(.semibold)
                 }
+            }
+            .alert("Remote Web Inspector", isPresented: $showInspectorHelp) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("On your Mac, open Safari → Settings → Advanced → enable \"Show features for web developers\". Then connect iPhone via USB and go to Safari → Develop → [your iPhone] → Drome.")
             }
             .confirmationDialog("Clear Browsing Data", isPresented: $showClearConfirm, titleVisibility: .visible) {
                 Button("Clear Cache", role: .destructive) {
