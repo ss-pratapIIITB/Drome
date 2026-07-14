@@ -8,6 +8,7 @@ final class WebViewCoordinator: NSObject {
     weak var browserVM: BrowserViewModel?
     private var aiFilter: AIContentFilter?
     private var aiAnalysisTask: Task<Void, Never>?
+    private var isObservingProgress = false
 
     // Live DOM mutation handling — debounced queue
     private var mutationDebounceTask: Task<Void, Never>?
@@ -66,7 +67,10 @@ extension WebViewCoordinator: WKNavigationDelegate {
         tab?.isLoading = true
         tab?.estimatedProgress = 0
         tab?.errorMessage = nil
-        webView.addObserver(self, forKeyPath: "estimatedProgress", options: .new, context: nil)
+        if !isObservingProgress {
+            webView.addObserver(self, forKeyPath: "estimatedProgress", options: .new, context: nil)
+            isObservingProgress = true
+        }
 
         // Cancel any in-flight AI analysis and clear old labels
         aiAnalysisTask?.cancel()
@@ -103,7 +107,7 @@ extension WebViewCoordinator: WKNavigationDelegate {
         tab?.canGoBack = webView.canGoBack
         tab?.canGoForward = webView.canGoForward
 
-        webView.removeObserver(self, forKeyPath: "estimatedProgress")
+        removeProgressObserver(from: webView)
 
         // Take a snapshot for the tab grid
         Task {
@@ -119,9 +123,7 @@ extension WebViewCoordinator: WKNavigationDelegate {
 
         // Apply dark mode if needed
         if browserVM?.forceDarkMode == true {
-            let css = "html{filter:invert(1) hue-rotate(180deg)!important}img,video,canvas,picture{filter:invert(1) hue-rotate(180deg)!important}"
-            let js = "var s=document.createElement('style');s.id='__drome_dark';s.textContent=`\(css)`;if(!document.getElementById('__drome_dark'))document.head.appendChild(s);"
-            webView.evaluateJavaScript(js, completionHandler: nil)
+            webView.evaluateJavaScript(JavaScriptInjector.applyDarkModeJS(), completionHandler: nil)
         }
 
         // Run AI content analysis if enabled
@@ -141,13 +143,13 @@ extension WebViewCoordinator: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         tab?.isLoading = false
-        webView.removeObserver(self, forKeyPath: "estimatedProgress")
+        removeProgressObserver(from: webView)
         tab?.errorMessage = error.localizedDescription
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         tab?.isLoading = false
-        webView.removeObserver(self, forKeyPath: "estimatedProgress")
+        removeProgressObserver(from: webView)
         let nsErr = error as NSError
         if nsErr.code != NSURLErrorCancelled {
             showErrorPage(webView: webView, error: error)
@@ -200,15 +202,21 @@ extension WebViewCoordinator: WKNavigationDelegate {
     }
 
     private func loadFavicon(for webView: WKWebView) {
-        guard let host = webView.url?.host else { return }
-        let faviconURL = "https://\(host)/favicon.ico"
-        guard let url = URL(string: faviconURL) else { return }
+        guard let host = webView.url?.host,
+              let url = URL(string: "https://\(host)/favicon.ico") else { return }
+        // URLSession keeps this off the main thread — Data(contentsOf:) here
+        // would block the main actor for the whole network round-trip
         Task {
-            if let data = try? Data(contentsOf: url),
-               let img = UIImage(data: data) {
-                tab?.favicon = img
-            }
+            guard let (data, _) = try? await URLSession.shared.data(from: url),
+                  let img = UIImage(data: data) else { return }
+            tab?.favicon = img
         }
+    }
+
+    private func removeProgressObserver(from webView: WKWebView) {
+        guard isObservingProgress else { return }
+        webView.removeObserver(self, forKeyPath: "estimatedProgress")
+        isObservingProgress = false
     }
 }
 
@@ -318,14 +326,14 @@ extension WebViewCoordinator: WKScriptMessageHandler {
               let xpath = dict["xpath"] as? String,
               browserVM?.aiFilterEnabled == true else { return }
 
-        // Deduplicate — skip if we already have a result for this xpath
-        if devToolsVM?.aiResults.contains(where: { $0.xpath == xpath }) == true { return }
+        // Deduplicate — skip if we already have a result or a queued entry for this xpath
+        if devToolsVM?.hasAIResult(xpath: xpath) == true { return }
+        if pendingMutations.contains(where: { $0.xpath == xpath }) { return }
 
         pendingMutations.append((text: text, xpath: xpath))
 
         // Debounce: reset the 2s timer on every incoming mutation
         mutationDebounceTask?.cancel()
-        let mutations = pendingMutations
         let filter = aiFilter
         let dvm = devToolsVM
         let removeUnsafe = browserVM?.aiRemoveUnsafe ?? false
@@ -334,18 +342,15 @@ extension WebViewCoordinator: WKScriptMessageHandler {
         mutationDebounceTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 2_000_000_000)
             guard !Task.isCancelled else { return }
+            // Cap per debounce window; the classifier batches these 10 per model request
+            let batch = Array(self.pendingMutations.prefix(30))
             self.pendingMutations.removeAll()
-            // Process up to 10 new blocks per batch to avoid overload
-            for item in mutations.prefix(10) {
-                guard !Task.isCancelled else { break }
-                await filter?.classifySingleBlock(
-                    text: item.text,
-                    xpath: item.xpath,
-                    webView: wv,
-                    devToolsVM: dvm,
-                    removeUnsafe: removeUnsafe
-                )
-            }
+            await filter?.classifyBlocks(
+                batch,
+                webView: wv,
+                devToolsVM: dvm,
+                removeUnsafe: removeUnsafe
+            )
         }
     }
 

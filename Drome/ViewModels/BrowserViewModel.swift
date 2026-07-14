@@ -44,6 +44,11 @@ final class BrowserViewModel: ObservableObject {
     init() {
         loadBlockedDomains()
         addNewTab(url: nil)
+        // Precompile the ad-block rule list so it's cached before the first
+        // page load instead of racing the initial WKWebView configuration
+        Task.detached(priority: .utility) {
+            _ = try? await ContentBlocker.shared.ruleList()
+        }
     }
 
     // MARK: - Tab Management

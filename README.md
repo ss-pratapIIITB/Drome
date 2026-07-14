@@ -16,7 +16,8 @@ A full-featured iOS browser built on WKWebView with developer tools, ad blocking
   - JS REPL — evaluate JS in the page context from within the app
 - **AI Content Filter** — uses Apple Foundation Models (iOS 26+) to identify and remove offensive/spam content from pages. Falls back to a keyword heuristic on older iOS.
   - Runs Mozilla's Readability scoring to find meaningful text blocks
-  - Sends each block to the on-device model for classification (private, no network)
+  - Classifies blocks in **batches of 10 per model request** (structured array output — a 40-block page costs ≤4 model calls, private, no network)
+  - See `docs/GEMMA_LITERT_EVALUATION.md` for why Apple FM + batching was chosen over Gemma/LiteRT
   - Finds the *smallest* DOM container wrapping the flagged content and removes it
 - **Forced dark mode** via CSS invert injection
 - **Custom user agent** with common presets (desktop Safari, Chrome, Firefox, Googlebot)
@@ -68,10 +69,11 @@ DromeApp
 
 AI Pipeline (per page load):
   WebViewCoordinator.didFinish
-    → AIContentFilter.analyzeAndFilter(webView:)
+    → AIContentFilter.analyzeAndLabel(webView:)
       → JS: extract text blocks via Readability scoring
-      → Swift: classify each block (Foundation Models / heuristic)
-      → JS: find smallest containing DOM element for flagged blocks
+      → Swift: keyword pre-filter resolves cheap cases
+      → Swift: remaining blocks → Foundation Models, 10 per request (batched)
+      → JS: one label-update call per batch
       → JS: fade out + remove flagged elements
 ```
 
