@@ -17,7 +17,7 @@ A full-featured iOS browser built on WKWebView with developer tools, ad blocking
 - **AI Content Filter** — uses Apple Foundation Models (iOS 26+) to identify and remove offensive/spam content from pages. Falls back to a keyword heuristic on older iOS.
   - Runs Mozilla's Readability scoring to find meaningful text blocks
   - Classifies blocks in **batches of 10 per model request** (structured array output — a 40-block page costs ≤4 model calls, private, no network)
-  - See `docs/GEMMA_LITERT_EVALUATION.md` for why Apple FM + batching was chosen over Gemma/LiteRT
+  - See `docs/GEMMA_LITERT_EVALUATION.md` for the Apple FM vs Gemma/LiteRT comparison (RAM budgets, batching capacity, reliability)
   - Finds the *smallest* DOM container wrapping the flagged content and removes it
 - **Forced dark mode** via CSS invert injection
 - **Custom user agent** with common presets (desktop Safari, Chrome, Firefox, Googlebot)
