@@ -14,6 +14,26 @@ struct ContentSafetyResult {
     var reason: String
 }
 
+@available(iOS 26.0, *)
+@Generable
+struct BatchSafetyVerdict {
+    @Guide(description: "1-based number of the ITEM this verdict is for")
+    var item: Int
+
+    @Guide(description: "true if the item is safe for someone with anxiety, false if it could trigger anxiety")
+    var safe: Bool
+
+    @Guide(description: "3 to 6 word phrase explaining the classification")
+    var reason: String
+}
+
+@available(iOS 26.0, *)
+@Generable
+struct BatchContentSafetyResult {
+    @Guide(description: "Exactly one verdict per numbered ITEM, in the same order as the input")
+    var verdicts: [BatchSafetyVerdict]
+}
+
 // MARK: - AIContentFilter
 
 final class AIContentFilter {
@@ -21,9 +41,15 @@ final class AIContentFilter {
     // Minimum chars to bother classifying at all
     private let minBlockLength = 25
 
-    // Token safety: 400 chars ≈ 130 tokens. Fresh session overhead ≈ 65 tokens (instructions).
-    // Total ≈ 225 tokens per session — well under the 4096-token context window.
+    // Per-item char cap. 400 chars ≈ 130 tokens, so a full batch of
+    // `aiBatchSize` items ≈ 1300 tokens + ~100 instruction tokens + structured
+    // output — comfortably inside the model's 4096-token context window.
     private let maxBlockChars = 400
+
+    // Items per Foundation Models request. One request classifies the whole
+    // batch, so a 40-block page costs 4 model calls instead of 40 — the model
+    // processes the instructions once per batch instead of once per block.
+    static let aiBatchSize = 10
 
     private let systemInstructions = """
     You are a mental health content safety classifier embedded in a web browser. \
@@ -71,76 +97,34 @@ final class AIContentFilter {
         devToolsVM?.aiAnalyzedCount = 0
 
         // ── Step 2: Check AI availability ───────────────────────────────────
-        let useAI: Bool
+        let useAI = foundationModelsAvailable()
         if #available(iOS 26.0, *) {
-            let avail = SystemLanguageModel.default.availability
-            useAI = (avail == .available)
             log(devToolsVM, useAI
-                ? "🤖 Apple Foundation Models available — routing long blocks to AI"
-                : "⚠️ Foundation Models unavailable (\(avail)) — keyword fallback for all blocks")
+                ? "🤖 Apple Foundation Models available — batching long blocks to AI (\(Self.aiBatchSize)/request)"
+                : "⚠️ Foundation Models unavailable (\(SystemLanguageModel.default.availability)) — keyword fallback for all blocks")
         } else {
-            useAI = false
             log(devToolsVM, "📋 iOS < 26 — keyword heuristics only")
         }
 
         // ── Step 3: Phase 1 — mark ALL candidates as pending (blue) at once ─
-        let xpaths = capped.compactMap { $0["xpath"] as? String }
-        let pendingScript = JavaScriptInjector.markAllPendingJS(xpaths: xpaths)
+        let blocks: [(text: String, xpath: String)] = capped.compactMap { dict in
+            guard let t = dict["text"] as? String, let x = dict["xpath"] as? String else { return nil }
+            return (text: t, xpath: x)
+        }
+        let pendingScript = JavaScriptInjector.markAllPendingJS(xpaths: blocks.map { $0.xpath })
         webView.evaluateJavaScript(pendingScript, completionHandler: nil)
-        log(devToolsVM, "⏳ Marked \(xpaths.count) elements as pending")
+        log(devToolsVM, "⏳ Marked \(blocks.count) elements as pending")
 
         // Small yield so the blue borders paint before we block on AI calls
         await Task.yield()
 
-        // ── Step 4: Phase 2 — classify each block, update label as we go ────
-        var unsafeXPaths: [String] = []
-
-        for block in capped {
-            guard !Task.isCancelled else {
-                log(devToolsVM, "🚫 Cancelled (navigated away)")
-                break
-            }
-
-            guard let rawText = block["text"] as? String,
-                  let xpath = block["xpath"] as? String else { continue }
-
-            let cleanedText = cleanText(rawText)
-            guard cleanedText.count >= minBlockLength else { continue }
-
-            let words = wordCount(cleanedText)
-            let truncated = String(cleanedText.prefix(maxBlockChars))
-
-            let (isSafe, reason): (Bool, String)
-            let method: String
-
-            // Always run keyword pre-filter first — hard overrides FM
-            let (kwSafe, kwReason) = classifyWithHeuristics(text: cleanedText)
-            if !kwSafe {
-                (isSafe, reason) = (false, kwReason)
-                method = "kw"
-            } else if words <= 3 {
-                (isSafe, reason) = (true, "Safe content")
-                method = "kw"
-            } else if useAI, #available(iOS 26.0, *) {
-                (isSafe, reason) = await classifyWithFoundationModels(text: truncated, devToolsVM: devToolsVM)
-                method = "ai"
-            } else {
-                (isSafe, reason) = (kwSafe, kwReason)
-                method = "kw"
-            }
-
-            let preview = String(cleanedText.prefix(60))
-            log(devToolsVM, "[\(method)] \(isSafe ? "✅" : "🔴") \"\(preview)\" — \(reason)")
-
-            // Update element from ⏳ → ✓/⚠
-            let updateScript = JavaScriptInjector.updateLabelJS(xpath: xpath, isSafe: isSafe, reason: reason)
-            webView.evaluateJavaScript(updateScript, completionHandler: nil)
-
-            devToolsVM?.addAIResult(AIResult(xpath: xpath, isSafe: isSafe, reason: reason, preview: preview))
-            if !isSafe { unsafeXPaths.append(xpath) }
-
-            await Task.yield()
-        }
+        // ── Step 4: Phase 2 — classify (keywords first, then batched AI) ────
+        let unsafeXPaths = await classifyAndLabel(
+            blocks: blocks,
+            webView: webView,
+            devToolsVM: devToolsVM,
+            useAI: useAI
+        )
 
         let safe = devToolsVM?.aiResults.filter { $0.isSafe }.count ?? 0
         let unsafe = devToolsVM?.aiResults.filter { !$0.isSafe }.count ?? 0
@@ -153,6 +137,122 @@ final class AIContentFilter {
         try? await Task.sleep(nanoseconds: 1_200_000_000)
         guard !Task.isCancelled else { return }
         webView.evaluateJavaScript(JavaScriptInjector.applyFilterJS(xpaths: unsafeXPaths), completionHandler: nil)
+    }
+
+    // MARK: - Batched entry point for live DOM mutations
+
+    @MainActor
+    func classifyBlocks(
+        _ incoming: [(text: String, xpath: String)],
+        webView: WKWebView,
+        devToolsVM: DeveloperToolsViewModel?,
+        removeUnsafe: Bool
+    ) async {
+        let qualifying = incoming.filter { cleanText($0.text).count >= minBlockLength }
+        guard !qualifying.isEmpty else { return }
+
+        webView.evaluateJavaScript(
+            JavaScriptInjector.markAllPendingJS(xpaths: qualifying.map { $0.xpath }),
+            completionHandler: nil
+        )
+
+        devToolsVM?.aiTotalCount += qualifying.count
+        let unsafeXPaths = await classifyAndLabel(
+            blocks: qualifying,
+            webView: webView,
+            devToolsVM: devToolsVM,
+            useAI: foundationModelsAvailable(),
+            logPrefix: "[live]"
+        )
+
+        guard !Task.isCancelled, removeUnsafe, !unsafeXPaths.isEmpty else { return }
+        try? await Task.sleep(nanoseconds: 600_000_000)
+        guard !Task.isCancelled else { return }
+        webView.evaluateJavaScript(JavaScriptInjector.applyFilterJS(xpaths: unsafeXPaths), completionHandler: nil)
+    }
+
+    // MARK: - Core classification pipeline (shared by page load + mutations)
+
+    /// Keyword pre-filter resolves cheap cases immediately; everything else is
+    /// classified by Foundation Models in batches of `aiBatchSize`. DOM labels
+    /// are updated with one JS call per batch instead of one per block.
+    /// Returns the xpaths of blocks judged unsafe.
+    @MainActor
+    private func classifyAndLabel(
+        blocks: [(text: String, xpath: String)],
+        webView: WKWebView,
+        devToolsVM: DeveloperToolsViewModel?,
+        useAI: Bool,
+        logPrefix: String = ""
+    ) async -> [String] {
+        var unsafeXPaths: [String] = []
+        var resolvedNow: [(xpath: String, isSafe: Bool, reason: String)] = []
+        var aiQueue: [(text: String, xpath: String)] = []
+
+        func record(xpath: String, text: String, isSafe: Bool, reason: String, method: String) {
+            let preview = String(text.prefix(60))
+            log(devToolsVM, "\(logPrefix)[\(method)] \(isSafe ? "✅" : "🔴") \"\(preview)\" — \(reason)")
+            devToolsVM?.addAIResult(AIResult(xpath: xpath, isSafe: isSafe, reason: reason, preview: preview))
+            if !isSafe { unsafeXPaths.append(xpath) }
+        }
+
+        // Pass 1 — keyword pre-filter (hard overrides FM); short blocks and
+        // no-AI mode resolve here too
+        for (rawText, xpath) in blocks {
+            let cleaned = cleanText(rawText)
+            guard cleaned.count >= minBlockLength else { continue }
+
+            let (kwSafe, kwReason) = classifyWithHeuristics(text: cleaned)
+            if !kwSafe {
+                record(xpath: xpath, text: cleaned, isSafe: false, reason: kwReason, method: "kw")
+                resolvedNow.append((xpath: xpath, isSafe: false, reason: kwReason))
+            } else if wordCount(cleaned) <= 3 || !useAI {
+                record(xpath: xpath, text: cleaned, isSafe: true, reason: kwReason, method: "kw")
+                resolvedNow.append((xpath: xpath, isSafe: true, reason: kwReason))
+            } else {
+                aiQueue.append((text: String(cleaned.prefix(maxBlockChars)), xpath: xpath))
+            }
+        }
+
+        if !resolvedNow.isEmpty {
+            webView.evaluateJavaScript(JavaScriptInjector.updateLabelsBatchJS(resolvedNow), completionHandler: nil)
+        }
+
+        // Pass 2 — batched Foundation Models classification
+        if useAI, #available(iOS 26.0, *) {
+            var index = 0
+            while index < aiQueue.count {
+                guard !Task.isCancelled else {
+                    log(devToolsVM, "🚫 Cancelled (navigated away)")
+                    break
+                }
+                let chunk = Array(aiQueue[index..<min(index + Self.aiBatchSize, aiQueue.count)])
+                index += chunk.count
+
+                let verdicts = await classifyBatchWithFoundationModels(
+                    texts: chunk.map { $0.text },
+                    devToolsVM: devToolsVM
+                )
+
+                var updates: [(xpath: String, isSafe: Bool, reason: String)] = []
+                for (i, item) in chunk.enumerated() {
+                    let (isSafe, reason) = verdicts[i]
+                    record(xpath: item.xpath, text: item.text, isSafe: isSafe, reason: reason, method: "ai")
+                    updates.append((xpath: item.xpath, isSafe: isSafe, reason: reason))
+                }
+                webView.evaluateJavaScript(JavaScriptInjector.updateLabelsBatchJS(updates), completionHandler: nil)
+                await Task.yield()
+            }
+        }
+
+        return unsafeXPaths
+    }
+
+    private func foundationModelsAvailable() -> Bool {
+        if #available(iOS 26.0, *) {
+            return SystemLanguageModel.default.availability == .available
+        }
+        return false
     }
 
     // MARK: - Text cleaning
@@ -169,7 +269,94 @@ final class AIContentFilter {
             .count
     }
 
-    // MARK: - Foundation Models (fresh session per block = clean context, ~225 tokens total)
+    /// Strip generation artifacts (brackets, asterisks, trailing punctuation)
+    private func sanitizeReason(_ raw: String, fallback: String) -> String {
+        var reason = raw
+        if let cut = reason.firstIndex(of: "[") { reason = String(reason[..<cut]) }
+        if let cut = reason.firstIndex(of: "]") { reason = String(reason[..<cut]) }
+        if let cut = reason.firstIndex(of: "*") { reason = String(reason[..<cut]) }
+        reason = reason.trimmingCharacters(in: .whitespacesAndNewlines.union(.init(charactersIn: ",:;}")))
+        if reason.isEmpty || reason.count > 60 { reason = fallback }
+        return reason
+    }
+
+    // MARK: - Foundation Models: batched classification
+
+    /// Classifies up to `aiBatchSize` texts in a single model request using
+    /// numbered ITEMs and a structured array response. Fallback ladder:
+    /// context overflow → split batch in half and retry; guardrail violation →
+    /// reclassify items individually (so one sensitive item doesn't taint the
+    /// batch); anything else → keyword heuristics.
+    @available(iOS 26.0, *)
+    @MainActor
+    private func classifyBatchWithFoundationModels(
+        texts: [String],
+        devToolsVM: DeveloperToolsViewModel?
+    ) async -> [(Bool, String)] {
+        guard !texts.isEmpty else { return [] }
+        if texts.count == 1 {
+            return [await classifyWithFoundationModels(text: texts[0], devToolsVM: devToolsVM)]
+        }
+
+        let prompt = texts.enumerated()
+            .map { "ITEM \($0.offset + 1): \($0.element)" }
+            .joined(separator: "\n\n")
+        log(devToolsVM, "[AI→] Batch of \(texts.count) items, \(prompt.count) chars")
+
+        do {
+            let session = LanguageModelSession(
+                model: SystemLanguageModel(useCase: .contentTagging),
+                instructions: systemInstructions + """
+                 You will receive \(texts.count) numbered ITEMs. Classify each ITEM independently \
+                and return exactly one verdict per ITEM with its item number.
+                """
+            )
+            let result = try await session.respond(to: prompt, generating: BatchContentSafetyResult.self)
+
+            var byItem: [Int: BatchSafetyVerdict] = [:]
+            for v in result.content.verdicts { byItem[v.item] = v }
+
+            return texts.enumerated().map { i, text in
+                if let v = byItem[i + 1] {
+                    let reason = sanitizeReason(v.reason, fallback: v.safe ? "Safe content" : "Sensitive content")
+                    return (v.safe, reason)
+                }
+                log(devToolsVM, "[AI!] No verdict for item \(i + 1) — keyword fallback")
+                return classifyWithHeuristics(text: text)
+            }
+
+        } catch let err as LanguageModelSession.GenerationError {
+            let errStr = "\(err)"
+            log(devToolsVM, "[AI✗] Batch GenerationError: \(errStr.prefix(120))")
+            switch err {
+            case .exceededContextWindowSize:
+                log(devToolsVM, "[AI✗] Batch too large — splitting in half")
+                let mid = texts.count / 2
+                let left = await classifyBatchWithFoundationModels(texts: Array(texts[..<mid]), devToolsVM: devToolsVM)
+                let right = await classifyBatchWithFoundationModels(texts: Array(texts[mid...]), devToolsVM: devToolsVM)
+                return left + right
+            case .guardrailViolation:
+                log(devToolsVM, "[AI✗] Batch guardrail — reclassifying items individually")
+                var out: [(Bool, String)] = []
+                for t in texts {
+                    if Task.isCancelled {
+                        out.append(classifyWithHeuristics(text: t))
+                    } else {
+                        out.append(await classifyWithFoundationModels(text: t, devToolsVM: devToolsVM))
+                    }
+                }
+                return out
+            default:
+                log(devToolsVM, "[AI✗] Falling back to keywords for batch")
+                return texts.map { classifyWithHeuristics(text: $0) }
+            }
+        } catch {
+            log(devToolsVM, "[AI✗] \(error.localizedDescription) — keyword fallback for batch")
+            return texts.map { classifyWithHeuristics(text: $0) }
+        }
+    }
+
+    // MARK: - Foundation Models: single-item classification
 
     @available(iOS 26.0, *)
     @MainActor
@@ -181,13 +368,10 @@ final class AIContentFilter {
                 instructions: systemInstructions
             )
             let result = try await session.respond(to: text, generating: ContentSafetyResult.self)
-            // Sanitize reason: strip anything after punctuation artifacts or brackets
-            var reason = result.content.reason
-            if let cut = reason.firstIndex(of: "[") { reason = String(reason[..<cut]) }
-            if let cut = reason.firstIndex(of: "]") { reason = String(reason[..<cut]) }
-            if let cut = reason.firstIndex(of: "*") { reason = String(reason[..<cut]) }
-            reason = reason.trimmingCharacters(in: .whitespacesAndNewlines.union(.init(charactersIn: ",:;}")))
-            if reason.isEmpty || reason.count > 60 { reason = result.content.safe ? "Safe content" : "Sensitive content" }
+            let reason = sanitizeReason(
+                result.content.reason,
+                fallback: result.content.safe ? "Safe content" : "Sensitive content"
+            )
             log(devToolsVM, "[AI←] safe=\(result.content.safe) reason=\"\(reason)\"")
             return (result.content.safe, reason)
 
@@ -260,64 +444,6 @@ final class AIContentFilter {
         return (true, "Safe content")
     }
 
-    // MARK: - Single block classifier (for live DOM mutations)
-
-    @MainActor
-    func classifySingleBlock(
-        text: String,
-        xpath: String,
-        webView: WKWebView,
-        devToolsVM: DeveloperToolsViewModel?,
-        removeUnsafe: Bool
-    ) async {
-        let cleaned = cleanText(text)
-        guard cleaned.count >= minBlockLength else { return }
-
-        let truncated = String(cleaned.prefix(maxBlockChars))
-        let words = wordCount(cleaned)
-
-        let (isSafe, reason): (Bool, String)
-        let method: String
-
-        // Mark pending first
-        webView.evaluateJavaScript(
-            JavaScriptInjector.markAllPendingJS(xpaths: [xpath]),
-            completionHandler: nil
-        )
-
-        let (kwSafe, kwReason) = classifyWithHeuristics(text: cleaned)
-        if !kwSafe {
-            (isSafe, reason) = (false, kwReason)
-            method = "kw"
-        } else if words <= 3 {
-            (isSafe, reason) = (true, "Safe content")
-            method = "kw"
-        } else if #available(iOS 26.0, *), SystemLanguageModel.default.availability == .available {
-            (isSafe, reason) = await classifyWithFoundationModels(text: truncated, devToolsVM: devToolsVM)
-            method = "ai"
-        } else {
-            (isSafe, reason) = (kwSafe, kwReason)
-            method = "kw"
-        }
-
-        let preview = String(cleaned.prefix(60))
-        log(devToolsVM, "[live/\(method)] \(isSafe ? "✅" : "🔴") \"\(preview)\" — \(reason)")
-
-        webView.evaluateJavaScript(
-            JavaScriptInjector.updateLabelJS(xpath: xpath, isSafe: isSafe, reason: reason),
-            completionHandler: nil
-        )
-        devToolsVM?.addAIResult(AIResult(xpath: xpath, isSafe: isSafe, reason: reason, preview: preview))
-
-        if !isSafe && removeUnsafe {
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            webView.evaluateJavaScript(
-                JavaScriptInjector.applyFilterJS(xpaths: [xpath]),
-                completionHandler: nil
-            )
-        }
-    }
-
     // MARK: - AI Chat
 
     func chat(message: String) async -> String {
@@ -348,7 +474,7 @@ final class AIContentFilter {
         if l.contains("unsafe") && l.contains("what")     { return "Unsafe = likely to trigger anxiety: violence, disasters, financial doom, health scares, or urgency bait." }
         if l.contains("reading mode")                      { return "Tap the book icon in the bottom toolbar to toggle reading mode." }
         if l.contains("remove")                            { return "Enable 'Remove Unsafe Content' in Settings → Privacy → AI Content Filter." }
-        if l.contains("how") && l.contains("work")        { return "Short text (≤3 words) uses keyword matching. Longer text goes to Apple's on-device AI. No data leaves the device." }
+        if l.contains("how") && l.contains("work")        { return "Short text (≤3 words) uses keyword matching. Longer text goes to Apple's on-device AI in batches of \(AIContentFilter.aiBatchSize). No data leaves the device." }
         if l.contains("hello") || l.trimmingCharacters(in: .whitespaces) == "hi" { return "Hi! Ask me about the page analysis, why something was flagged, or any Drome feature." }
         return "I'm Drome's on-device AI. Ask me about content safety results, browser features, or why something was flagged."
     }

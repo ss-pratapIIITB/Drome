@@ -46,6 +46,14 @@ final class DeveloperToolsViewModel: ObservableObject {
     @Published var aiChatMessages: [AIChatMessage] = []
     @Published var aiChatInput = ""
 
+    // O(1) lookups — network responses arrive per-request and busy pages
+    // produce hundreds of them; linear scans of @Published arrays add up
+    private var networkIndexByID: [String: Int] = [:]
+    private var aiResultXPaths: Set<String> = []
+
+    private let maxConsoleEntries = 2000
+    private let maxNetworkEntries = 1000
+
     var filteredConsole: [ConsoleEntry] {
         consoleEntries.filter { entry in
             selectedLevels.contains(entry.level) &&
@@ -63,18 +71,24 @@ final class DeveloperToolsViewModel: ObservableObject {
 
     func addConsoleEntry(_ entry: ConsoleEntry) {
         consoleEntries.append(entry)
-        if consoleEntries.count > 2000 {
-            consoleEntries.removeFirst(consoleEntries.count - 2000)
+        // Trim in chunks — removeFirst on every append is an O(n) shift each time
+        if consoleEntries.count > maxConsoleEntries + 200 {
+            consoleEntries.removeFirst(consoleEntries.count - maxConsoleEntries)
         }
     }
 
     func addNetworkRequest(_ entry: NetworkEntry) {
+        if networkEntries.count > maxNetworkEntries + 200 {
+            networkEntries.removeFirst(networkEntries.count - maxNetworkEntries)
+            rebuildNetworkIndex()
+        }
         pendingNetworkEntries[entry.id] = entry
+        networkIndexByID[entry.id] = networkEntries.count
         networkEntries.append(entry)
     }
 
     func updateNetworkResponse(id: String, status: Int, duration: TimeInterval, size: Int) {
-        if let idx = networkEntries.firstIndex(where: { $0.id == id }) {
+        if let idx = networkIndexByID[id], networkEntries.indices.contains(idx) {
             networkEntries[idx].status = status >= 400 ? .failure("HTTP \(status)") : .success(status)
             networkEntries[idx].duration = duration
             networkEntries[idx].responseSize = size
@@ -83,26 +97,42 @@ final class DeveloperToolsViewModel: ObservableObject {
     }
 
     func markNetworkError(id: String, message: String) {
-        if let idx = networkEntries.firstIndex(where: { $0.id == id }) {
+        if let idx = networkIndexByID[id], networkEntries.indices.contains(idx) {
             networkEntries[idx].status = .failure(message)
         }
         pendingNetworkEntries.removeValue(forKey: id)
     }
 
+    private func rebuildNetworkIndex() {
+        networkIndexByID = Dictionary(
+            uniqueKeysWithValues: networkEntries.enumerated().map { ($0.element.id, $0.offset) }
+        )
+    }
+
     func addAIResult(_ result: AIResult) {
         aiResults.append(result)
+        aiResultXPaths.insert(result.xpath)
         aiAnalyzedCount += 1
+    }
+
+    func hasAIResult(xpath: String) -> Bool {
+        aiResultXPaths.contains(xpath)
     }
 
     func clearAIResults() {
         aiResults.removeAll()
+        aiResultXPaths.removeAll()
         aiIsAnalyzing = false
         aiAnalyzedCount = 0
         aiTotalCount = 0
     }
 
     func clearConsole() { consoleEntries.removeAll() }
-    func clearNetwork() { networkEntries.removeAll(); pendingNetworkEntries.removeAll() }
+    func clearNetwork() {
+        networkEntries.removeAll()
+        pendingNetworkEntries.removeAll()
+        networkIndexByID.removeAll()
+    }
 
     func clearAll() {
         clearConsole()

@@ -38,6 +38,19 @@ enum JavaScriptInjector {
         "document.getElementById('__drome_dark')?.remove();"
     }
 
+    /// Idempotent — safe to call on every SwiftUI update cycle
+    static func applyDarkModeJS() -> String {
+        """
+        (function() {
+            if (document.getElementById('__drome_dark')) return;
+            const s = document.createElement('style');
+            s.id = '__drome_dark';
+            s.textContent = 'html{filter:invert(1) hue-rotate(180deg)!important}img,video,canvas,picture,svg{filter:invert(1) hue-rotate(180deg)!important}';
+            document.head.appendChild(s);
+        })();
+        """
+    }
+
     static func applyFilterJS(xpaths: [String]) -> String {
         let pathsJSON = (try? String(data: JSONSerialization.data(withJSONObject: xpaths), encoding: .utf8)) ?? "[]"
         return """
@@ -86,12 +99,18 @@ enum JavaScriptInjector {
                 return parts.length ? '/html/body/' + parts.join('/') : '/html/body';
             }
 
+            // checkVisibility avoids the forced style recalc of getComputedStyle
+            function isHidden(el) {
+                if (el.checkVisibility) return !el.checkVisibility();
+                const style = window.getComputedStyle(el);
+                return style.display === 'none' || style.visibility === 'hidden';
+            }
+
             function walk(node) {
                 if (!node) return;
                 if (node.nodeType === Node.ELEMENT_NODE) {
                     if (skipTags.has(node.tagName)) return;
-                    const style = window.getComputedStyle(node);
-                    if (style.display === 'none' || style.visibility === 'hidden') return;
+                    if (isHidden(node)) return;
                 }
                 if (node.nodeType === Node.TEXT_NODE) {
                     const text = node.textContent.trim();
@@ -167,78 +186,29 @@ enum JavaScriptInjector {
         """
     }
 
-    /// Phase 2 — update a single element from pending → safe/unsafe
-    static func updateLabelJS(xpath: String, isSafe: Bool, reason: String) -> String {
-        let safeVal = isSafe ? "1" : "0"
-        let labelText = isSafe ? "✓ Safe" : "⚠ Unsafe"
-        let esc = { (s: String) in s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'") }
+    /// Phase 2 (batched) — update many elements from pending → safe/unsafe in one JS round-trip
+    static func updateLabelsBatchJS(_ updates: [(xpath: String, isSafe: Bool, reason: String)]) -> String {
+        let objects: [[String: Any]] = updates.map {
+            ["x": $0.xpath,
+             "s": $0.isSafe ? "1" : "0",
+             "l": $0.isSafe ? "✓ Safe" : "⚠ Unsafe",
+             "r": $0.reason]
+        }
+        let json = (try? String(data: JSONSerialization.data(withJSONObject: objects), encoding: .utf8)) ?? "[]"
         return """
         (function() {
-            try {
-                const res = document.evaluate('\(esc(xpath))', document, null,
-                    XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                const el = res.singleNodeValue;
-                if (!el) return;
-                el.setAttribute('data-drome-safe', '\(safeVal)');
-                el.setAttribute('data-drome-label', '\(labelText)');
-                el.setAttribute('title', '\(esc(reason))');
-            } catch(e) {}
-        })();
-        """
-    }
-
-    static func labelElementJS(xpath: String, isSafe: Bool, reason: String) -> String {
-        let safeVal = isSafe ? "1" : "0"
-        let labelText = isSafe ? "✓ Safe" : "⚠ Unsafe"
-        let escapedXPath = xpath
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-            .replacingOccurrences(of: "'", with: "\\'")
-        let escapedReason = reason
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "'", with: "\\'")
-        return """
-        (function() {
-            try {
-                // Inject shared CSS once
-                if (!document.getElementById('__drome_ai_style')) {
-                    const s = document.createElement('style');
-                    s.id = '__drome_ai_style';
-                    s.textContent = `
-                        [data-drome-safe] {
-                            outline: 2px solid rgba(34,197,94,0.45) !important;
-                            outline-offset: 1px;
-                        }
-                        [data-drome-safe="0"] {
-                            outline: 2px solid rgba(239,68,68,0.45) !important;
-                        }
-                        [data-drome-safe]::before {
-                            content: attr(data-drome-label) !important;
-                            display: inline-block !important;
-                            padding: 0px 5px !important;
-                            border-radius: 3px !important;
-                            font-size: 10px !important;
-                            font-weight: 700 !important;
-                            font-family: -apple-system, sans-serif !important;
-                            color: #fff !important;
-                            line-height: 16px !important;
-                            vertical-align: middle !important;
-                            margin-right: 4px !important;
-                            pointer-events: none !important;
-                        }
-                        [data-drome-safe="1"]::before { background: rgba(22,163,74,0.88) !important; }
-                        [data-drome-safe="0"]::before { background: rgba(220,38,38,0.88) !important; }
-                    `;
-                    document.head.appendChild(s);
-                }
-                const res = document.evaluate('\(escapedXPath)', document, null,
-                    XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                const el = res.singleNodeValue;
-                if (!el || el.hasAttribute('data-drome-safe')) return;
-                el.setAttribute('data-drome-safe', '\(safeVal)');
-                el.setAttribute('data-drome-label', '\(labelText)');
-                el.setAttribute('data-drome-reason', '\(escapedReason)');
-            } catch(e) { console.error('[Drome AI] label error', e); }
+            const updates = \(json);
+            updates.forEach(function(u) {
+                try {
+                    const res = document.evaluate(u.x, document, null,
+                        XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                    const el = res.singleNodeValue;
+                    if (!el) return;
+                    el.setAttribute('data-drome-safe', u.s);
+                    el.setAttribute('data-drome-label', u.l);
+                    el.setAttribute('title', u.r);
+                } catch(e) {}
+            });
         })();
         """
     }
@@ -274,8 +244,7 @@ enum JavaScriptInjector {
                             if (!n) return;
                             if (n.nodeType === Node.ELEMENT_NODE) {
                                 if (skipTags.has(n.tagName)) return;
-                                const s = window.getComputedStyle(n);
-                                if (s.display === 'none' || s.visibility === 'hidden') return;
+                                if (n.checkVisibility ? !n.checkVisibility() : false) return;
                                 for (const c of n.childNodes) walk(c);
                             } else if (n.nodeType === Node.TEXT_NODE) {
                                 const text = n.textContent.trim();

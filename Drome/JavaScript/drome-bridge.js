@@ -12,13 +12,19 @@
 
     // ── Console interception ──────────────────────────────────────────────────
 
+    // Cap serialized size — pages log huge objects in tight loops, and every
+    // char crosses the JS→native bridge and lands in a SwiftUI-observed array
+    const MAX_ARG_LEN = 2000;
     const _fmt = (args) => args.map(a => {
         if (a === null) return 'null';
         if (a === undefined) return 'undefined';
+        let s;
         if (typeof a === 'object') {
-            try { return JSON.stringify(a, null, 2); } catch { return String(a); }
+            try { s = JSON.stringify(a); } catch { s = String(a); }
+        } else {
+            s = String(a);
         }
-        return String(a);
+        return s.length > MAX_ARG_LEN ? s.slice(0, MAX_ARG_LEN) + '…' : s;
     }).join(' ');
 
     ['log', 'info', 'warn', 'error', 'debug', 'trace'].forEach(level => {
@@ -69,20 +75,16 @@
         _send('dromeNetwork', { type: 'request', id, url, method, timestamp: t0 });
 
         return _origFetch.call(this, input, init).then(res => {
-            const clone = res.clone();
-            clone.text().then(body => {
-                _send('dromeNetwork', {
-                    type: 'response', id, url, method,
-                    status: res.status,
-                    duration: Date.now() - t0,
-                    size: body.length,
-                    timestamp: Date.now()
-                });
-            }).catch(() => {
-                _send('dromeNetwork', {
-                    type: 'response', id, url, method,
-                    status: res.status, duration: Date.now() - t0, size: 0, timestamp: Date.now()
-                });
+            // Size from the header only — clone().text() would buffer every
+            // response body a second time just to measure it
+            let size = 0;
+            try { size = parseInt(res.headers.get('content-length') || '0', 10) || 0; } catch {}
+            _send('dromeNetwork', {
+                type: 'response', id, url, method,
+                status: res.status,
+                duration: Date.now() - t0,
+                size,
+                timestamp: Date.now()
             });
             return res;
         }).catch(err => {
@@ -110,11 +112,21 @@
             _send('dromeNetwork', { type: 'request', id, url, method, timestamp: t0 });
 
             this.addEventListener('load', () => {
+                // responseText throws for non-text responseTypes (blob/arraybuffer)
+                let size = 0;
+                try { size = parseInt(this.getResponseHeader('content-length') || '0', 10) || 0; } catch {}
+                if (!size) {
+                    try {
+                        if (!this.responseType || this.responseType === 'text') {
+                            size = this.responseText?.length || 0;
+                        }
+                    } catch {}
+                }
                 _send('dromeNetwork', {
                     type: 'response', id, url, method,
                     status: this.status,
                     duration: Date.now() - t0,
-                    size: this.responseText?.length || 0,
+                    size,
                     timestamp: Date.now()
                 });
             });

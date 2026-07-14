@@ -38,12 +38,11 @@ struct DromeWebView: UIViewRepresentable {
     func updateUIView(_ webView: WKWebView, context: Context) {
         applySettings(webView, coordinator: context.coordinator)
 
-        // Dark mode injection
+        // Dark mode toggle mid-page (both scripts are idempotent)
         if browserVM.forceDarkMode {
-            webView.evaluateJavaScript(
-                "if (!document.getElementById('__drome_dark')) { \(JavaScriptInjector.makeBridgeScript().source) }",
-                completionHandler: nil
-            )
+            webView.evaluateJavaScript(JavaScriptInjector.applyDarkModeJS(), completionHandler: nil)
+        } else {
+            webView.evaluateJavaScript(JavaScriptInjector.removeDarkModeJS(), completionHandler: nil)
         }
     }
 
