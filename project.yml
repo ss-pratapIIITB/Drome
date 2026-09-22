@@ -30,8 +30,6 @@ targets:
     resources:
       - path: Drome/JavaScript/drome-bridge.js
       - path: Drome/JavaScript/drome-readability.js
-    dependencies:
-      - sdk: FoundationModels.framework
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.surendrapratap.drome

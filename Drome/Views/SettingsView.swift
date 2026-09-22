@@ -28,6 +28,13 @@ struct SettingsView: View {
                             Label("Remove Unsafe Content", systemImage: "xmark.shield")
                         }
                         .padding(.leading, 24)
+
+                        NavigationLink {
+                            LayaMLXSettingsView()
+                        } label: {
+                            Label("Laya MLX", systemImage: "cpu")
+                        }
+                        .padding(.leading, 24)
                     }
                     Toggle(isOn: $browserVM.blockPopups) {
                         Label("Block Pop-ups", systemImage: "xmark.rectangle")
@@ -150,6 +157,31 @@ struct SettingsView: View {
         store.fetchDataRecords(ofTypes: types) { records in
             store.removeData(ofTypes: types, for: records) {}
         }
+    }
+}
+
+struct LayaMLXSettingsView: View {
+    @EnvironmentObject var browserVM: BrowserViewModel
+
+    var body: some View {
+        Form {
+            Section("Local inference service") {
+                TextField("http://127.0.0.1:8765", text: $browserVM.layaMLXEndpoint)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+            } footer: {
+                Text("Use 127.0.0.1 in Simulator. On an iPhone, enter the Mac's local-network address, for example http://192.168.1.10:8765.")
+            }
+
+            Section {
+                Text("Laya MLX runs locally on Apple Silicon and sends no content to a cloud API. Drome falls back to its keyword classifier whenever the service is unavailable.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Laya MLX")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
