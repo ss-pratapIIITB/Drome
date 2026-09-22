@@ -23,7 +23,6 @@
 		AC11B7F56B9AC033F7208B70 /* JavaScriptStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72634340D62857CCCF84CD52 /* JavaScriptStrings.swift */; };
 		AC2A1DF6DE168B8A9D2EF013 /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3897C1E1B723E9AAB1033B8A /* BrowserView.swift */; };
 		B2B0C109BE3C3F497E748129 /* AIContentFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B132409A2ADA6642FA16408 /* AIContentFilter.swift */; };
-		B4AFAE7573881693A7F6D8CD /* FoundationModels.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 12452C46DE7E42BA3843F9E5 /* FoundationModels.framework */; };
 		D0862BBAAAEECAAF2E979A0D /* WebsiteBlockerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D79E988E2FA950DA88B1A7 /* WebsiteBlockerView.swift */; };
 		D89C93CECC19F17AD44AB4A4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFC7461A315578535A3164F /* ContentView.swift */; };
 		F3ADB354D96763E100DA42B2 /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */; };
@@ -32,7 +31,6 @@
 
 /* Begin PBXFileReference section */
 		0B132409A2ADA6642FA16408 /* AIContentFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIContentFilter.swift; sourceTree = "<group>"; };
-		12452C46DE7E42BA3843F9E5 /* FoundationModels.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = FoundationModels.framework; path = System/Library/Frameworks/FoundationModels.framework; sourceTree = SDKROOT; };
 		160100EC20EC6C4743769630 /* DromeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DromeApp.swift; sourceTree = "<group>"; };
 		22708312843519B9DDC1094F /* ConsoleEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleEntry.swift; sourceTree = "<group>"; };
 		2607DBF82ABC8FC0EA38D564 /* BlockRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRule.swift; sourceTree = "<group>"; };
@@ -61,7 +59,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				B4AFAE7573881693A7F6D8CD /* FoundationModels.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -138,7 +135,6 @@
 		B22DF2C890B94DD3F86C1F56 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				12452C46DE7E42BA3843F9E5 /* FoundationModels.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";

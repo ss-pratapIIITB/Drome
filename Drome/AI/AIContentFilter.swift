@@ -1,38 +1,87 @@
 import Foundation
 import WebKit
-import FoundationModels
 
-// MARK: - Structured output for Apple Foundation Models
+// MARK: - Laya MLX local service
 
-@available(iOS 26.0, *)
-@Generable
-struct ContentSafetyResult {
-    @Guide(description: "true if content is safe for someone with anxiety, false if it could trigger anxiety")
-    var safe: Bool
+private struct LayaHealthResponse: Decodable {
+    let status: String
+}
 
-    @Guide(description: "3 to 6 word phrase explaining the classification")
-    var reason: String
+private struct LayaClassificationRequest: Encodable {
+    let text: String
+}
+
+private struct LayaClassificationResponse: Decodable {
+    let safe: Bool
+    let reason: String
+    let confidence: Double
+    let latencyMs: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case safe, reason, confidence
+        case latencyMs = "latency_ms"
+    }
+}
+
+private actor LayaMLXClient {
+    private let session: URLSession
+
+    init(session: URLSession = .shared) {
+        self.session = session
+    }
+
+    private var endpoint: URL? {
+        let configured = UserDefaults.standard.string(forKey: "layaMLXEndpoint")?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = configured.flatMap { $0.isEmpty ? nil : $0 } ?? "http://127.0.0.1:8765"
+        return URL(string: value.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+    }
+
+    func isAvailable() async -> Bool {
+        guard let url = endpoint?.appendingPathComponent("health") else { return false }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 1.5
+        do {
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  http.statusCode == 200,
+                  let health = try? JSONDecoder().decode(LayaHealthResponse.self, from: data)
+            else { return false }
+            return health.status == "ready"
+        } catch {
+            return false
+        }
+    }
+
+    func classify(_ text: String) async throws -> LayaClassificationResponse {
+        guard let url = endpoint?.appendingPathComponent("v1/classify") else {
+            throw URLError(.badURL)
+        }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 4
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(LayaClassificationRequest(text: text))
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
+            throw URLError(.badServerResponse)
+        }
+        return try JSONDecoder().decode(LayaClassificationResponse.self, from: data)
+    }
 }
 
 // MARK: - AIContentFilter
 
 final class AIContentFilter {
 
+    private let layaClient = LayaMLXClient()
+
     // Minimum chars to bother classifying at all
     private let minBlockLength = 25
 
-    // Token safety: 400 chars ≈ 130 tokens. Fresh session overhead ≈ 65 tokens (instructions).
-    // Total ≈ 225 tokens per session — well under the 4096-token context window.
+    // Keep inference small and responsive; the service also enforces its own input cap.
     private let maxBlockChars = 400
-
-    private let systemInstructions = """
-    You are a mental health content safety classifier embedded in a web browser. \
-    Decide whether a piece of web page text is safe for someone with anxiety. \
-    UNSAFE: violence, death, crime, disasters, health crises, financial doom, \
-    recession, layoffs, outrage bait, alarming statistics, high-urgency pressure language. \
-    SAFE: informational, educational, entertainment, how-to, product descriptions, reviews, neutral reporting. \
-    Be decisive.
-    """
 
     // MARK: - Main entry (MainActor — WKWebView requires main thread)
 
@@ -70,18 +119,11 @@ final class AIContentFilter {
         devToolsVM?.aiTotalCount = capped.count
         devToolsVM?.aiAnalyzedCount = 0
 
-        // ── Step 2: Check AI availability ───────────────────────────────────
-        let useAI: Bool
-        if #available(iOS 26.0, *) {
-            let avail = SystemLanguageModel.default.availability
-            useAI = (avail == .available)
-            log(devToolsVM, useAI
-                ? "🤖 Apple Foundation Models available — routing long blocks to AI"
-                : "⚠️ Foundation Models unavailable (\(avail)) — keyword fallback for all blocks")
-        } else {
-            useAI = false
-            log(devToolsVM, "📋 iOS < 26 — keyword heuristics only")
-        }
+        // ── Step 2: Check the local Laya MLX service ────────────────────────
+        let useAI = await layaClient.isAvailable()
+        log(devToolsVM, useAI
+            ? "🤖 Laya MLX available — routing long blocks to typed decisions"
+            : "⚠️ Laya MLX unavailable — keyword fallback for all blocks")
 
         // ── Step 3: Phase 1 — mark ALL candidates as pending (blue) at once ─
         let xpaths = capped.compactMap { $0["xpath"] as? String }
@@ -113,7 +155,7 @@ final class AIContentFilter {
             let (isSafe, reason): (Bool, String)
             let method: String
 
-            // Always run keyword pre-filter first — hard overrides FM
+            // Always run keyword pre-filter first as a hard safety override.
             let (kwSafe, kwReason) = classifyWithHeuristics(text: cleanedText)
             if !kwSafe {
                 (isSafe, reason) = (false, kwReason)
@@ -121,9 +163,9 @@ final class AIContentFilter {
             } else if words <= 3 {
                 (isSafe, reason) = (true, "Safe content")
                 method = "kw"
-            } else if useAI, #available(iOS 26.0, *) {
-                (isSafe, reason) = await classifyWithFoundationModels(text: truncated, devToolsVM: devToolsVM)
-                method = "ai"
+            } else if useAI {
+                (isSafe, reason) = await classifyWithLayaMLX(text: truncated, devToolsVM: devToolsVM)
+                method = "laya"
             } else {
                 (isSafe, reason) = (kwSafe, kwReason)
                 method = "kw"
@@ -169,58 +211,23 @@ final class AIContentFilter {
             .count
     }
 
-    // MARK: - Foundation Models (fresh session per block = clean context, ~225 tokens total)
+    // MARK: - Laya MLX
 
-    @available(iOS 26.0, *)
     @MainActor
-    private func classifyWithFoundationModels(text: String, devToolsVM: DeveloperToolsViewModel?) async -> (Bool, String) {
-        log(devToolsVM, "[AI→] Sending \(text.count) chars, \(wordCount(text)) words: \"\(String(text.prefix(120)).replacingOccurrences(of: "\n", with: " "))\"")
+    private func classifyWithLayaMLX(text: String, devToolsVM: DeveloperToolsViewModel?) async -> (Bool, String) {
+        log(devToolsVM, "[Laya→] Sending \(text.count) chars, \(wordCount(text)) words: \"\(String(text.prefix(120)).replacingOccurrences(of: "\n", with: " "))\"")
         do {
-            let session = LanguageModelSession(
-                model: SystemLanguageModel(useCase: .contentTagging),
-                instructions: systemInstructions
-            )
-            let result = try await session.respond(to: text, generating: ContentSafetyResult.self)
-            // Sanitize reason: strip anything after punctuation artifacts or brackets
-            var reason = result.content.reason
-            if let cut = reason.firstIndex(of: "[") { reason = String(reason[..<cut]) }
-            if let cut = reason.firstIndex(of: "]") { reason = String(reason[..<cut]) }
-            if let cut = reason.firstIndex(of: "*") { reason = String(reason[..<cut]) }
-            reason = reason.trimmingCharacters(in: .whitespacesAndNewlines.union(.init(charactersIn: ",:;}")))
-            if reason.isEmpty || reason.count > 60 { reason = result.content.safe ? "Safe content" : "Sensitive content" }
-            log(devToolsVM, "[AI←] safe=\(result.content.safe) reason=\"\(reason)\"")
-            return (result.content.safe, reason)
-
-        } catch let err as LanguageModelSession.GenerationError {
-            let errStr = "\(err)"
-            log(devToolsVM, "[AI✗] GenerationError: \(errStr.prefix(120))")
-            switch err {
-            case .rateLimited, .concurrentRequests:
-                log(devToolsVM, "[AI✗] Rate limited — falling back to keywords")
-                return classifyWithHeuristics(text: text)
-            case .guardrailViolation:
-                log(devToolsVM, "[AI✗] Guardrail triggered — marking unsafe")
-                return (false, "Sensitive content")
-            case .exceededContextWindowSize:
-                log(devToolsVM, "[AI✗] Context too large — falling back to keywords")
-                let shorter = String(text.prefix(200))
-                return classifyWithHeuristics(text: shorter)
-            default:
-                // refusal = Apple's FM refused because content is sensitive → treat as unsafe
-                if errStr.contains("refusal") || errStr.contains("sensitive") || errStr.contains("Refusal") {
-                    log(devToolsVM, "[AI✗] Apple refused (sensitive content) — marking unsafe")
-                    return (false, "Sensitive content")
-                }
-                log(devToolsVM, "[AI✗] Unknown error — falling back to keywords")
-                return classifyWithHeuristics(text: text)
-            }
+            let result = try await layaClient.classify(text)
+            let latency = result.latencyMs.map { String(format: "%.1fms", $0) } ?? "n/a"
+            log(devToolsVM, "[Laya←] safe=\(result.safe) confidence=\(String(format: "%.2f", result.confidence)) latency=\(latency) reason=\"\(result.reason)\"")
+            return (result.safe, result.reason)
         } catch {
-            log(devToolsVM, "[AI✗] Error: \(error.localizedDescription) — falling back to keywords")
+            log(devToolsVM, "[Laya✗] \(error.localizedDescription) — falling back to keywords")
             return classifyWithHeuristics(text: text)
         }
     }
 
-    // MARK: - Keyword heuristics (used for ≤3-word blocks and FM fallback)
+    // MARK: - Keyword heuristics (short blocks and Laya fallback)
 
     private func classifyWithHeuristics(text: String) -> (Bool, String) {
         let lower = text.lowercased()
@@ -292,9 +299,9 @@ final class AIContentFilter {
         } else if words <= 3 {
             (isSafe, reason) = (true, "Safe content")
             method = "kw"
-        } else if #available(iOS 26.0, *), SystemLanguageModel.default.availability == .available {
-            (isSafe, reason) = await classifyWithFoundationModels(text: truncated, devToolsVM: devToolsVM)
-            method = "ai"
+        } else if await layaClient.isAvailable() {
+            (isSafe, reason) = await classifyWithLayaMLX(text: truncated, devToolsVM: devToolsVM)
+            method = "laya"
         } else {
             (isSafe, reason) = (kwSafe, kwReason)
             method = "kw"
@@ -321,25 +328,7 @@ final class AIContentFilter {
     // MARK: - AI Chat
 
     func chat(message: String) async -> String {
-        if #available(iOS 26.0, *), SystemLanguageModel.default.availability == .available {
-            return await chatWithFoundationModels(message: message)
-        }
         return chatHeuristic(message: message)
-    }
-
-    @available(iOS 26.0, *)
-    private func chatWithFoundationModels(message: String) async -> String {
-        do {
-            let session = LanguageModelSession(instructions: """
-                You are a concise assistant built into Drome, an iOS browser. \
-                Help the user understand AI content safety analysis and browser features. \
-                Keep answers to 2-3 sentences.
-                """)
-            let response = try await session.respond(to: message)
-            return response.content
-        } catch {
-            return chatHeuristic(message: message)
-        }
     }
 
     private func chatHeuristic(message: String) -> String {
@@ -348,9 +337,9 @@ final class AIContentFilter {
         if l.contains("unsafe") && l.contains("what")     { return "Unsafe = likely to trigger anxiety: violence, disasters, financial doom, health scares, or urgency bait." }
         if l.contains("reading mode")                      { return "Tap the book icon in the bottom toolbar to toggle reading mode." }
         if l.contains("remove")                            { return "Enable 'Remove Unsafe Content' in Settings → Privacy → AI Content Filter." }
-        if l.contains("how") && l.contains("work")        { return "Short text (≤3 words) uses keyword matching. Longer text goes to Apple's on-device AI. No data leaves the device." }
+        if l.contains("how") && l.contains("work")        { return "Short text uses keyword matching. Longer text goes to your local Laya MLX service for fast typed decisions; no cloud API is used." }
         if l.contains("hello") || l.trimmingCharacters(in: .whitespaces) == "hi" { return "Hi! Ask me about the page analysis, why something was flagged, or any Drome feature." }
-        return "I'm Drome's on-device AI. Ask me about content safety results, browser features, or why something was flagged."
+        return "I'm Drome's local AI helper. Ask me about content safety results, browser features, or why something was flagged."
     }
 
     // MARK: - Helpers
