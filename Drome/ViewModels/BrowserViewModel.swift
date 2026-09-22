@@ -26,7 +26,6 @@ final class BrowserViewModel: ObservableObject {
     @AppStorage("searchEngine") var searchEngine = "https://duckduckgo.com/?q="
     @AppStorage("blockPopups") var blockPopups = true
     @AppStorage("aiRemoveUnsafe") var aiRemoveUnsafe = false
-    @AppStorage("layaMLXEndpoint") var layaMLXEndpoint = "http://127.0.0.1:8765"
 
     // Per-session state (resets on relaunch)
     @Published var readingModeActive = false

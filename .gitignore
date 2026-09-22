@@ -9,4 +9,3 @@ DerivedData/
 *.perspectivev3
 __pycache__/
 *.py[cod]
-.venv/

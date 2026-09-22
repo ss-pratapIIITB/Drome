@@ -1,0 +1,23 @@
+name: iOS build
+
+on:
+  push:
+    branches:
+      - feature/laya-mlx-swift-on-device
+  pull_request:
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve packages
+        run: xcodebuild -resolvePackageDependencies -project Drome.xcodeproj -scheme Drome
+      - name: Build for iOS Simulator
+        run: >-
+          xcodebuild
+          -project Drome.xcodeproj
+          -scheme Drome
+          -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO
+          build

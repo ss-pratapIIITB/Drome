@@ -18,6 +18,14 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"
     SWIFT_STRICT_CONCURRENCY: targeted
 
+packages:
+  MLXSwift:
+    url: https://github.com/ml-explore/mlx-swift
+    revision: 901941965d82e4a216d4d117231d847d194c563d
+  SwiftTransformers:
+    url: https://github.com/huggingface/swift-transformers
+    revision: 9088d55148b799e853cf4e039b0f0a1e3efe034c
+
 targets:
   Drome:
     type: application
@@ -30,11 +38,21 @@ targets:
     resources:
       - path: Drome/JavaScript/drome-bridge.js
       - path: Drome/JavaScript/drome-readability.js
+    dependencies:
+      - package: MLXSwift
+        product: MLX
+      - package: MLXSwift
+        product: MLXNN
+      - package: SwiftTransformers
+        product: Hub
+      - package: SwiftTransformers
+        product: Tokenizers
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.surendrapratap.drome
         DEVELOPMENT_TEAM: PAZR439BX6
         CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: Drome/Drome.entitlements
         INFOPLIST_FILE: Drome/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     scheme:
