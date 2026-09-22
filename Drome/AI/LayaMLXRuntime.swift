@@ -310,8 +310,8 @@ private final class LayaAgent: @unchecked Sendable {
 
         let unsafeTemperature = temperature(questionType: 2, optionCount: 2)
         let categoryTemperature = temperature(questionType: 0, optionCount: 8)
-        let unsafeProbabilities = softMax(logits[0, 0 ..< 2] / unsafeTemperature, axis: -1)
-        let categoryProbabilities = softMax(logits[1, 0 ..< 8] / categoryTemperature, axis: -1)
+        let unsafeProbabilities = softmax(logits[0, 0 ..< 2] / unsafeTemperature, axis: -1)
+        let categoryProbabilities = softmax(logits[1, 0 ..< 8] / categoryTemperature, axis: -1)
         eval(unsafeProbabilities, categoryProbabilities)
 
         let unsafeProbability = unsafeProbabilities[1].item(Float.self)
@@ -606,7 +606,7 @@ private final class LayaModernBERT: Module {
             positions.expandedDimensions(axis: 1) - positions.expandedDimensions(axis: 0)
         ) .<= (localAttention / 2)
         local = local.expandedDimensions(axes: [0, 1])
-        let paddedQueries = !valid.expandedDimensions(axes: [1, 3])
+        let paddedQueries = logicalNot(valid.expandedDimensions(axes: [1, 3]))
         local = (local .|| paddedQueries) .&& full
         return ["full_attention": full, "sliding_attention": local]
     }
