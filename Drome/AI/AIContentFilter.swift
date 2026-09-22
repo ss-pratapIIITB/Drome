@@ -1,86 +1,16 @@
 import Foundation
 import WebKit
 
-// MARK: - Laya MLX local service
-
-private struct LayaHealthResponse: Decodable {
-    let status: String
-}
-
-private struct LayaClassificationRequest: Encodable {
-    let text: String
-}
-
-private struct LayaClassificationResponse: Decodable {
-    let safe: Bool
-    let reason: String
-    let confidence: Double
-    let latencyMs: Double?
-
-    enum CodingKeys: String, CodingKey {
-        case safe, reason, confidence
-        case latencyMs = "latency_ms"
-    }
-}
-
-private actor LayaMLXClient {
-    private let session: URLSession
-
-    init(session: URLSession = .shared) {
-        self.session = session
-    }
-
-    private var endpoint: URL? {
-        let configured = UserDefaults.standard.string(forKey: "layaMLXEndpoint")?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let value = configured.flatMap { $0.isEmpty ? nil : $0 } ?? "http://127.0.0.1:8765"
-        return URL(string: value.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
-    }
-
-    func isAvailable() async -> Bool {
-        guard let url = endpoint?.appendingPathComponent("health") else { return false }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 1.5
-        do {
-            let (data, response) = try await session.data(for: request)
-            guard let http = response as? HTTPURLResponse,
-                  http.statusCode == 200,
-                  let health = try? JSONDecoder().decode(LayaHealthResponse.self, from: data)
-            else { return false }
-            return health.status == "ready"
-        } catch {
-            return false
-        }
-    }
-
-    func classify(_ text: String) async throws -> LayaClassificationResponse {
-        guard let url = endpoint?.appendingPathComponent("v1/classify") else {
-            throw URLError(.badURL)
-        }
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 4
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(LayaClassificationRequest(text: text))
-
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw URLError(.badServerResponse)
-        }
-        return try JSONDecoder().decode(LayaClassificationResponse.self, from: data)
-    }
-}
-
 // MARK: - AIContentFilter
 
 final class AIContentFilter {
 
-    private let layaClient = LayaMLXClient()
+    private let layaRuntime = LayaMLXRuntime.shared
 
     // Minimum chars to bother classifying at all
     private let minBlockLength = 25
 
-    // Keep inference small and responsive; the service also enforces its own input cap.
+    // Keep inference small and responsive; the native runtime also enforces its own input cap.
     private let maxBlockChars = 400
 
     // MARK: - Main entry (MainActor — WKWebView requires main thread)
@@ -119,10 +49,18 @@ final class AIContentFilter {
         devToolsVM?.aiTotalCount = capped.count
         devToolsVM?.aiAnalyzedCount = 0
 
-        // ── Step 2: Check the local Laya MLX service ────────────────────────
-        let useAI = await layaClient.isAvailable()
+        // ── Step 2: Load Laya MLX on the device ─────────────────────────────
+        log(devToolsVM, "🤖 Preparing on-device Laya MLX (first use downloads the model)…")
+        let useAI: Bool
+        do {
+            try await layaRuntime.prepare()
+            useAI = true
+        } catch {
+            useAI = false
+            log(devToolsVM, "⚠️ Laya MLX failed to load: \(error.localizedDescription)")
+        }
         log(devToolsVM, useAI
-            ? "🤖 Laya MLX available — routing long blocks to typed decisions"
+            ? "🤖 Laya MLX ready on device — routing long blocks to typed decisions"
             : "⚠️ Laya MLX unavailable — keyword fallback for all blocks")
 
         // ── Step 3: Phase 1 — mark ALL candidates as pending (blue) at once ─
@@ -217,8 +155,8 @@ final class AIContentFilter {
     private func classifyWithLayaMLX(text: String, devToolsVM: DeveloperToolsViewModel?) async -> (Bool, String) {
         log(devToolsVM, "[Laya→] Sending \(text.count) chars, \(wordCount(text)) words: \"\(String(text.prefix(120)).replacingOccurrences(of: "\n", with: " "))\"")
         do {
-            let result = try await layaClient.classify(text)
-            let latency = result.latencyMs.map { String(format: "%.1fms", $0) } ?? "n/a"
+            let result = try await layaRuntime.classify(text)
+            let latency = String(format: "%.1fms", result.latencyMs)
             log(devToolsVM, "[Laya←] safe=\(result.safe) confidence=\(String(format: "%.2f", result.confidence)) latency=\(latency) reason=\"\(result.reason)\"")
             return (result.safe, result.reason)
         } catch {
@@ -299,7 +237,7 @@ final class AIContentFilter {
         } else if words <= 3 {
             (isSafe, reason) = (true, "Safe content")
             method = "kw"
-        } else if await layaClient.isAvailable() {
+        } else if (try? await layaRuntime.prepare()) != nil {
             (isSafe, reason) = await classifyWithLayaMLX(text: truncated, devToolsVM: devToolsVM)
             method = "laya"
         } else {
@@ -337,7 +275,7 @@ final class AIContentFilter {
         if l.contains("unsafe") && l.contains("what")     { return "Unsafe = likely to trigger anxiety: violence, disasters, financial doom, health scares, or urgency bait." }
         if l.contains("reading mode")                      { return "Tap the book icon in the bottom toolbar to toggle reading mode." }
         if l.contains("remove")                            { return "Enable 'Remove Unsafe Content' in Settings → Privacy → AI Content Filter." }
-        if l.contains("how") && l.contains("work")        { return "Short text uses keyword matching. Longer text goes to your local Laya MLX service for fast typed decisions; no cloud API is used." }
+        if l.contains("how") && l.contains("work")        { return "Short text uses keyword matching. Longer text runs through Laya on MLX Swift directly on your device; no server or cloud API is used." }
         if l.contains("hello") || l.trimmingCharacters(in: .whitespaces) == "hi" { return "Hi! Ask me about the page analysis, why something was flagged, or any Drome feature." }
         return "I'm Drome's local AI helper. Ask me about content safety results, browser features, or why something was flagged."
     }

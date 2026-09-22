@@ -8,6 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		01EC5FCE9DC2834C6CA2E9CC /* AddressBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDDCD189B7002A7BDB4464D /* AddressBarView.swift */; };
+		AA0000000000000000000002 /* LayaMLXRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000001 /* LayaMLXRuntime.swift */; };
+		AA0000000000000000000011 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000031 /* MLX */; };
+		AA0000000000000000000012 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000032 /* MLXNN */; };
+		AA0000000000000000000013 /* Hub in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000033 /* Hub */; };
+		AA0000000000000000000014 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000034 /* Tokenizers */; };
 		100EC39E6A4C4CB3580F9A6C /* TabGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86CE86AC380DDE1BA9ABE8C9 /* TabGridView.swift */; };
 		4B60DA7CCC425C443D91628B /* DromeWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D387D5A823F9AA0D97293F72 /* DromeWebView.swift */; };
 		4FB6570CE287505BE233B0AD /* DeveloperToolsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CAB159E7E15BC63F3CD9DF /* DeveloperToolsViewModel.swift */; };
@@ -31,6 +36,7 @@
 
 /* Begin PBXFileReference section */
 		0B132409A2ADA6642FA16408 /* AIContentFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIContentFilter.swift; sourceTree = "<group>"; };
+		AA0000000000000000000001 /* LayaMLXRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayaMLXRuntime.swift; sourceTree = "<group>"; };
 		160100EC20EC6C4743769630 /* DromeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DromeApp.swift; sourceTree = "<group>"; };
 		22708312843519B9DDC1094F /* ConsoleEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleEntry.swift; sourceTree = "<group>"; };
 		2607DBF82ABC8FC0EA38D564 /* BlockRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRule.swift; sourceTree = "<group>"; };
@@ -46,6 +52,7 @@
 		97AD4DF60F434CC5F82A2208 /* NetworkEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkEntry.swift; sourceTree = "<group>"; };
 		97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
 		A8F834EA9E316486106C646E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AA0000000000000000000003 /* Drome.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Drome.entitlements; sourceTree = "<group>"; };
 		AAE29DD84655FF4E627A2C1C /* WebViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewCoordinator.swift; sourceTree = "<group>"; };
 		B3A8F595022539BC48BE73AD /* DeveloperToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolsView.swift; sourceTree = "<group>"; };
 		BCFC7461A315578535A3164F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -59,6 +66,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA0000000000000000000013 /* Hub in Frameworks */,
+				AA0000000000000000000011 /* MLX in Frameworks */,
+				AA0000000000000000000012 /* MLXNN in Frameworks */,
+				AA0000000000000000000014 /* Tokenizers in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -104,6 +115,7 @@
 			isa = PBXGroup;
 			children = (
 				0B132409A2ADA6642FA16408 /* AIContentFilter.swift */,
+				AA0000000000000000000001 /* LayaMLXRuntime.swift */,
 			);
 			path = AI;
 			sourceTree = "<group>";
@@ -154,6 +166,7 @@
 			isa = PBXGroup;
 			children = (
 				160100EC20EC6C4743769630 /* DromeApp.swift */,
+				AA0000000000000000000003 /* Drome.entitlements */,
 				A8F834EA9E316486106C646E /* Info.plist */,
 				854B717E43FEC971DAE2EFF4 /* AI */,
 				56A5159F163A8433C64919E7 /* JavaScript */,
@@ -181,6 +194,10 @@
 			);
 			name = Drome;
 			packageProductDependencies = (
+				AA0000000000000000000031 /* MLX */,
+				AA0000000000000000000032 /* MLXNN */,
+				AA0000000000000000000033 /* Hub */,
+				AA0000000000000000000034 /* Tokenizers */,
 			);
 			productName = Drome;
 			productReference = C80B8A0600D72899A0373A68 /* Drome.app */;
@@ -214,6 +231,10 @@
 			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
+			packageReferences = (
+				AA0000000000000000000021 /* XCRemoteSwiftPackageReference "mlx-swift" */,
+				AA0000000000000000000022 /* XCRemoteSwiftPackageReference "swift-transformers" */,
+			);
 			targets = (
 				EE75DD6986B511121D1CEB08 /* Drome */,
 			);
@@ -226,6 +247,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B2B0C109BE3C3F497E748129 /* AIContentFilter.swift in Sources */,
+				AA0000000000000000000002 /* LayaMLXRuntime.swift in Sources */,
 				01EC5FCE9DC2834C6CA2E9CC /* AddressBarView.swift in Sources */,
 				500B2E4BB075E82352D4C41B /* BlockRule.swift in Sources */,
 				F3ADB354D96763E100DA42B2 /* BrowserTab.swift in Sources */,
@@ -388,6 +410,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Drome/Drome.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = PAZR439BX6;
@@ -407,6 +430,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Drome/Drome.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = PAZR439BX6;
@@ -444,6 +468,48 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		AA0000000000000000000021 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift";
+			requirement = {
+				kind = revision;
+				revision = 901941965d82e4a216d4d117231d847d194c563d;
+			};
+		};
+		AA0000000000000000000022 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/huggingface/swift-transformers";
+			requirement = {
+				kind = revision;
+				revision = 9088d55148b799e853cf4e039b0f0a1e3efe034c;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		AA0000000000000000000031 /* MLX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000021 /* XCRemoteSwiftPackageReference "mlx-swift" */;
+			productName = MLX;
+		};
+		AA0000000000000000000032 /* MLXNN */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000021 /* XCRemoteSwiftPackageReference "mlx-swift" */;
+			productName = MLXNN;
+		};
+		AA0000000000000000000033 /* Hub */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000022 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Hub;
+		};
+		AA0000000000000000000034 /* Tokenizers */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000000000000000000022 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Tokenizers;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E80B08AC1B7D6B07DBBEA6FC /* Project object */;
 }

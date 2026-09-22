@@ -161,21 +161,16 @@ struct SettingsView: View {
 }
 
 struct LayaMLXSettingsView: View {
-    @EnvironmentObject var browserVM: BrowserViewModel
-
     var body: some View {
         Form {
-            Section("Local inference service") {
-                TextField("http://127.0.0.1:8765", text: $browserVM.layaMLXEndpoint)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .keyboardType(.URL)
-            } footer: {
-                Text("Use 127.0.0.1 in Simulator. On an iPhone, enter the Mac's local-network address, for example http://192.168.1.10:8765.")
+            Section("On-device model") {
+                LabeledContent("Runtime", value: "MLX Swift")
+                LabeledContent("Model", value: "Laya 421M FP16")
+                LabeledContent("Download", value: "~843 MB")
             }
 
             Section {
-                Text("Laya MLX runs locally on Apple Silicon and sends no content to a cloud API. Drome falls back to its keyword classifier whenever the service is unavailable.")
+                Text("The model downloads from Hugging Face on first use, then runs entirely on the iPhone GPU. Page content never leaves the device. Drome falls back to its keyword classifier if the model cannot load.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
