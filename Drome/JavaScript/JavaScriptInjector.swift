@@ -65,25 +65,18 @@ enum JavaScriptInjector {
         """
         (function() {
             const blocks = [];
-            const minLength = 30;
+            const minLength = 25;
             const skipTags = new Set(['SCRIPT','STYLE','NOSCRIPT','CODE','PRE','SVG','MATH']);
 
-            function getXPath(el) {
-                if (!el || el === document.body) return '/html/body';
-                const parts = [];
-                let node = el;
-                // Stop at body — prefix result with /html/body/
-                while (node && node.nodeType === Node.ELEMENT_NODE && node !== document.body) {
-                    let idx = 1;
-                    let sib = node.previousSibling;
-                    while (sib) {
-                        if (sib.nodeType === Node.ELEMENT_NODE && sib.tagName === node.tagName) idx++;
-                        sib = sib.previousSibling;
-                    }
-                    parts.unshift(node.tagName.toLowerCase() + (idx > 1 ? '[' + idx + ']' : ''));
-                    node = node.parentElement;
+            function getStableXPath(el) {
+                if (!el) return '';
+                let id = el.getAttribute('data-drome-block-id');
+                if (!id) {
+                    window.__dromeBlockSequence = (window.__dromeBlockSequence || 0) + 1;
+                    id = 'block-' + window.__dromeBlockSequence;
+                    el.setAttribute('data-drome-block-id', id);
                 }
-                return parts.length ? '/html/body/' + parts.join('/') : '/html/body';
+                return "//*[@data-drome-block-id='" + id + "']";
             }
 
             function walk(node) {
@@ -99,7 +92,7 @@ enum JavaScriptInjector {
                         const el = node.parentElement;
                         blocks.push({
                             text: text.slice(0, 500),
-                            xpath: getXPath(el),
+                            xpath: getStableXPath(el),
                             tag: el.tagName.toLowerCase()
                         });
                     }
@@ -181,7 +174,7 @@ enum JavaScriptInjector {
                 if (!el) return;
                 el.setAttribute('data-drome-safe', '\(safeVal)');
                 el.setAttribute('data-drome-label', '\(labelText)');
-                el.setAttribute('title', '\(esc(reason))');
+                el.setAttribute('data-drome-reason', '\(esc(reason))');
             } catch(e) {}
         })();
         """
@@ -252,23 +245,30 @@ enum JavaScriptInjector {
 
             const skipTags = new Set(['SCRIPT','STYLE','NOSCRIPT','CODE','PRE','SVG','MATH']);
 
-            function getXPath(el) {
-                if (!el || el === document.body) return '/html/body';
-                const parts = [];
-                let node = el;
-                while (node && node.nodeType === 1 && node !== document.body) {
-                    let idx = 1, sib = node.previousSibling;
-                    while (sib) { if (sib.nodeType === 1 && sib.tagName === node.tagName) idx++; sib = sib.previousSibling; }
-                    parts.unshift(node.tagName.toLowerCase() + (idx > 1 ? '[' + idx + ']' : ''));
-                    node = node.parentElement;
+            function getStableXPath(el) {
+                if (!el) return '';
+                let id = el.getAttribute('data-drome-block-id');
+                if (!id) {
+                    window.__dromeBlockSequence = (window.__dromeBlockSequence || 0) + 1;
+                    id = 'block-' + window.__dromeBlockSequence;
+                    el.setAttribute('data-drome-block-id', id);
                 }
-                return parts.length ? '/html/body/' + parts.join('/') : '/html/body';
+                return "//*[@data-drome-block-id='" + id + "']";
             }
 
             const observer = new MutationObserver(function(mutations) {
                 const seen = new Set();
                 for (const mut of mutations) {
-                    for (const node of mut.addedNodes) {
+                    if (mut.type === 'characterData' && mut.target.parentElement) {
+                        const changedElement = mut.target.parentElement;
+                        changedElement.removeAttribute('data-drome-safe');
+                        changedElement.removeAttribute('data-drome-label');
+                        changedElement.removeAttribute('data-drome-reason');
+                    }
+                    const changedNodes = mut.type === 'characterData'
+                        ? [mut.target]
+                        : Array.from(mut.addedNodes);
+                    for (const node of changedNodes) {
                         // Walk added subtree for text nodes
                         (function walk(n) {
                             if (!n) return;
@@ -282,7 +282,7 @@ enum JavaScriptInjector {
                                 if (text.length < \(minLength)) return;
                                 const el = n.parentElement;
                                 if (!el || el.hasAttribute('data-drome-safe')) return;
-                                const xpath = getXPath(el);
+                                const xpath = getStableXPath(el);
                                 if (seen.has(xpath)) return;
                                 seen.add(xpath);
                                 try {
@@ -297,7 +297,11 @@ enum JavaScriptInjector {
                 }
             });
 
-            observer.observe(document.body, { childList: true, subtree: true });
+            observer.observe(document.body, {
+                childList: true,
+                characterData: true,
+                subtree: true
+            });
             window.__dromeMutationObserver = observer;
         })();
         """

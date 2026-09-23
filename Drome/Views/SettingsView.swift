@@ -12,10 +12,7 @@ struct SettingsView: View {
             List {
                 Section("Privacy & Security") {
                     Toggle(isOn: $browserVM.adBlockEnabled) {
-                        Label("Ad Blocking", systemImage: "hand.raised.fill")
-                    }
-                    .onChange(of: browserVM.adBlockEnabled) { _ in
-                        browserVM.reload()
+                        Label("Ad & Tracker Blocking", systemImage: "hand.raised.fill")
                     }
                     Toggle(isOn: $browserVM.aiFilterEnabled) {
                         Label("AI Content Filter", systemImage: "sparkles.rectangle.stack")
@@ -170,6 +167,16 @@ struct LayaMLXSettingsView: View {
             }
 
             Section {
+                NavigationLink {
+                    LayaPlaygroundView()
+                } label: {
+                    Label("Open Playground", systemImage: "text.and.command.macwindow")
+                }
+            } footer: {
+                Text("Run text directly through Laya and inspect its decision, confidence, and latency.")
+            }
+
+            Section {
                 Text("The model downloads from Hugging Face on first use, then runs entirely on the iPhone GPU. Page content never leaves the device. Drome falls back to its keyword classifier if the model cannot load.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -177,6 +184,96 @@ struct LayaMLXSettingsView: View {
         }
         .navigationTitle("Laya MLX")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+struct LayaPlaygroundView: View {
+    @State private var input = "A peaceful guide to growing herbs on an apartment balcony."
+    @State private var result: LayaClassificationResponse?
+    @State private var errorMessage: String?
+    @State private var isRunning = false
+
+    var body: some View {
+        Form {
+            Section("Input") {
+                TextEditor(text: $input)
+                    .frame(minHeight: 150)
+
+                HStack {
+                    Button("Safe sample") {
+                        input = "A peaceful guide to growing herbs on an apartment balcony."
+                    }
+                    Spacer()
+                    Button("Unsafe sample") {
+                        input = "Breaking news: a deadly bombing killed several people and triggered a city-wide crisis."
+                    }
+                }
+                .font(.caption)
+            }
+
+            Section {
+                Button {
+                    runInference()
+                } label: {
+                    HStack {
+                        Spacer()
+                        if isRunning {
+                            ProgressView()
+                                .padding(.trailing, 6)
+                            Text("Running Laya…")
+                        } else {
+                            Label("Run on device", systemImage: "play.fill")
+                        }
+                        Spacer()
+                    }
+                }
+                .disabled(isRunning || input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } footer: {
+                Text("The first run downloads the model. Later runs work offline and send no input off-device.")
+            }
+
+            if let result {
+                Section("Result") {
+                    LabeledContent("Decision") {
+                        Label(
+                            result.safe ? "Safe" : "Unsafe",
+                            systemImage: result.safe ? "checkmark.shield.fill" : "exclamationmark.shield.fill"
+                        )
+                        .foregroundStyle(result.safe ? .green : .red)
+                    }
+                    LabeledContent("Reason", value: result.reason)
+                    LabeledContent("Confidence", value: result.confidence.formatted(.percent.precision(.fractionLength(1))))
+                    LabeledContent("Latency", value: String(format: "%.1f ms", result.latencyMs))
+                }
+            }
+
+            if let errorMessage {
+                Section("Error") {
+                    Text(errorMessage)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+        .navigationTitle("Laya Playground")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func runInference() {
+        let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+
+        isRunning = true
+        result = nil
+        errorMessage = nil
+
+        Task {
+            do {
+                result = try await LayaMLXRuntime.shared.classify(text)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isRunning = false
+        }
     }
 }
 
