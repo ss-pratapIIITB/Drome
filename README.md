@@ -5,7 +5,7 @@ A full-featured iOS browser built on WKWebView with developer tools, ad blocking
 ## Features
 
 - **Multi-tab browsing** with tab grid and snapshots
-- **Ad blocking** via WKContentRuleList (EasyList-derived, ~55 rules)
+- **Ad and tracker blocking** enabled by default via WKContentRuleList (user-toggleable)
 - **Website blocker** — block any domain + all its subdomains
 - **Developer Tools** panel (drag to resize):
   - Console — live JS log/warn/error interception with filtering
@@ -18,6 +18,7 @@ A full-featured iOS browser built on WKWebView with developer tools, ad blocking
   - Runs Mozilla's Readability scoring to find meaningful text blocks
   - Runs the 421M-parameter FP16 model with MLX Swift on the Apple GPU
   - Downloads the ~843 MB checkpoint once; page content never leaves the device
+  - Includes a Settings → Laya MLX playground for inspecting decisions, confidence, and latency
   - Finds the *smallest* DOM container wrapping the flagged content and removes it
 - **Forced dark mode** via CSS invert injection
 - **Custom user agent** with common presets (desktop Safari, Chrome, Firefox, Googlebot)

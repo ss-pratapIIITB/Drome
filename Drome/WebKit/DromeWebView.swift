@@ -27,6 +27,11 @@ struct DromeWebView: UIViewRepresentable {
 
         Task { @MainActor in
             tab.webView = webView
+            // Do not start the first request until the default-on blocker is ready.
+            await context.coordinator.configureAdBlocking(
+                enabled: browserVM.adBlockEnabled,
+                on: webView
+            )
             if let url = tab.url {
                 webView.load(URLRequest(url: url))
             }
@@ -37,6 +42,17 @@ struct DromeWebView: UIViewRepresentable {
 
     func updateUIView(_ webView: WKWebView, context: Context) {
         applySettings(webView, coordinator: context.coordinator)
+
+        let adBlockingEnabled = browserVM.adBlockEnabled
+        Task { @MainActor in
+            let changed = await context.coordinator.configureAdBlocking(
+                enabled: adBlockingEnabled,
+                on: webView
+            )
+            if changed, webView.url != nil {
+                webView.reload()
+            }
+        }
 
         // Dark mode injection
         if browserVM.forceDarkMode {
@@ -74,17 +90,6 @@ struct DromeWebView: UIViewRepresentable {
         config.userContentController = ucc
         config.allowsInlineMediaPlayback = true
         config.mediaTypesRequiringUserActionForPlayback = []
-
-        // Apply ad blocking if enabled
-        if browserVM.adBlockEnabled {
-            Task {
-                if let ruleList = try? await ContentBlocker.shared.ruleList() {
-                    await MainActor.run {
-                        config.userContentController.add(ruleList)
-                    }
-                }
-            }
-        }
 
         return config
     }

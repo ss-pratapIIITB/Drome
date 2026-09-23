@@ -35,8 +35,8 @@ final class AIContentFilter {
             return
         }
 
-        let meaningful = raw.filter { (($0["text"] as? String)?.count ?? 0) >= minBlockLength }
-        log(devToolsVM, "📄 \(raw.count) blocks, \(meaningful.count) qualify (≥\(minBlockLength) chars)")
+        let meaningful = deduplicatedBlocks(raw)
+        log(devToolsVM, "📄 \(raw.count) blocks, \(meaningful.count) unique blocks qualify (≥\(minBlockLength) chars)")
 
         guard !meaningful.isEmpty else {
             log(devToolsVM, "No qualifying blocks — try a page with article text")
@@ -48,8 +48,18 @@ final class AIContentFilter {
         devToolsVM?.aiIsAnalyzing = true
         devToolsVM?.aiTotalCount = capped.count
         devToolsVM?.aiAnalyzedCount = 0
+        defer { devToolsVM?.aiIsAnalyzing = false }
 
-        // ── Step 2: Load Laya MLX on the device ─────────────────────────────
+        // ── Step 2: Acknowledge every candidate immediately ────────────────
+        // Do this before a first-use download or cold model load so the filter
+        // never appears unresponsive.
+        let xpaths = capped.compactMap { $0["xpath"] as? String }
+        let pendingScript = JavaScriptInjector.markAllPendingJS(xpaths: xpaths)
+        webView.evaluateJavaScript(pendingScript, completionHandler: nil)
+        log(devToolsVM, "⏳ Marked \(xpaths.count) elements as pending")
+        await Task.yield()
+
+        // ── Step 3: Load Laya MLX on the device ─────────────────────────────
         log(devToolsVM, "🤖 Preparing on-device Laya MLX (first use downloads the model)…")
         let useAI: Bool
         do {
@@ -63,16 +73,7 @@ final class AIContentFilter {
             ? "🤖 Laya MLX ready on device — routing long blocks to typed decisions"
             : "⚠️ Laya MLX unavailable — keyword fallback for all blocks")
 
-        // ── Step 3: Phase 1 — mark ALL candidates as pending (blue) at once ─
-        let xpaths = capped.compactMap { $0["xpath"] as? String }
-        let pendingScript = JavaScriptInjector.markAllPendingJS(xpaths: xpaths)
-        webView.evaluateJavaScript(pendingScript, completionHandler: nil)
-        log(devToolsVM, "⏳ Marked \(xpaths.count) elements as pending")
-
-        // Small yield so the blue borders paint before we block on AI calls
-        await Task.yield()
-
-        // ── Step 4: Phase 2 — classify each block, update label as we go ────
+        // ── Step 4: Classify each block, update label as we go ──────────────
         var unsafeXPaths: [String] = []
 
         for block in capped {
@@ -109,6 +110,8 @@ final class AIContentFilter {
                 method = "kw"
             }
 
+            guard !Task.isCancelled else { break }
+
             let preview = String(cleanedText.prefix(60))
             log(devToolsVM, "[\(method)] \(isSafe ? "✅" : "🔴") \"\(preview)\" — \(reason)")
 
@@ -125,7 +128,6 @@ final class AIContentFilter {
         let safe = devToolsVM?.aiResults.filter { $0.isSafe }.count ?? 0
         let unsafe = devToolsVM?.aiResults.filter { !$0.isSafe }.count ?? 0
         log(devToolsVM, "✅ Complete — \(safe) safe · \(unsafe) unsafe · \(capped.count) total")
-        devToolsVM?.aiIsAnalyzing = false
 
         // ── Step 5: Remove unsafe if setting is on ──────────────────────────
         guard !Task.isCancelled, removeUnsafe, !unsafeXPaths.isEmpty else { return }
@@ -147,6 +149,27 @@ final class AIContentFilter {
         text.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
             .filter { !$0.isEmpty }
             .count
+    }
+
+    private func deduplicatedBlocks(_ blocks: [[String: Any]]) -> [[String: Any]] {
+        var order: [String] = []
+        var longestByPath: [String: [String: Any]] = [:]
+
+        for block in blocks {
+            guard let text = block["text"] as? String,
+                  text.count >= minBlockLength,
+                  let path = block["xpath"] as? String,
+                  !path.isEmpty else { continue }
+
+            if longestByPath[path] == nil {
+                order.append(path)
+                longestByPath[path] = block
+            } else if text.count > ((longestByPath[path]?["text"] as? String)?.count ?? 0) {
+                longestByPath[path] = block
+            }
+        }
+
+        return order.compactMap { longestByPath[$0] }
     }
 
     // MARK: - Laya MLX
@@ -244,6 +267,8 @@ final class AIContentFilter {
             (isSafe, reason) = (kwSafe, kwReason)
             method = "kw"
         }
+
+        guard !Task.isCancelled else { return }
 
         let preview = String(cleaned.prefix(60))
         log(devToolsVM, "[live/\(method)] \(isSafe ? "✅" : "🔴") \"\(preview)\" — \(reason)")

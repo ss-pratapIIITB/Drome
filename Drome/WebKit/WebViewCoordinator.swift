@@ -9,15 +9,51 @@ final class WebViewCoordinator: NSObject {
     private var aiFilter: AIContentFilter?
     private var aiAnalysisTask: Task<Void, Never>?
 
-    // Live DOM mutation handling — debounced queue
+    // Live DOM mutation handling — bounded queue that never drops busy-page updates.
     private var mutationDebounceTask: Task<Void, Never>?
-    private var pendingMutations: [(text: String, xpath: String)] = []
+    private var pendingMutations: [String: String] = [:]
+    private var initialAnalysisInProgress = false
+    private var pageGeneration = 0
+
+    // Content rules must be attached before navigation. Track desired/applied state so
+    // SwiftUI updates cannot race the initial asynchronous rule-list compilation.
+    private var desiredAdBlockingEnabled = true
+    private var appliedAdBlockingEnabled: Bool?
+    private var isConfiguringAdBlocking = false
 
     init(tab: BrowserTab, devToolsVM: DeveloperToolsViewModel, browserVM: BrowserViewModel) {
         self.tab = tab
         self.devToolsVM = devToolsVM
         self.browserVM = browserVM
         self.aiFilter = AIContentFilter()
+    }
+
+    @discardableResult
+    func configureAdBlocking(enabled: Bool, on webView: WKWebView) async -> Bool {
+        desiredAdBlockingEnabled = enabled
+        guard !isConfiguringAdBlocking else { return false }
+
+        isConfiguringAdBlocking = true
+        defer { isConfiguringAdBlocking = false }
+        var changed = false
+
+        while appliedAdBlockingEnabled != desiredAdBlockingEnabled {
+            let target = desiredAdBlockingEnabled
+            var ruleList: WKContentRuleList?
+            if target {
+                ruleList = try? await ContentBlocker.shared.ruleList()
+            }
+
+            // The setting may have changed while the rule list was compiling.
+            guard target == desiredAdBlockingEnabled else { continue }
+
+            webView.configuration.userContentController.removeAllContentRuleLists()
+            if let ruleList { webView.configuration.userContentController.add(ruleList) }
+            appliedAdBlockingEnabled = target
+            changed = true
+        }
+
+        return changed
     }
 }
 
@@ -74,6 +110,8 @@ extension WebViewCoordinator: WKNavigationDelegate {
         mutationDebounceTask?.cancel()
         mutationDebounceTask = nil
         pendingMutations.removeAll()
+        initialAnalysisInProgress = false
+        pageGeneration += 1
         webView.evaluateJavaScript(JavaScriptInjector.stopMutationObserverJS(), completionHandler: nil)
         webView.evaluateJavaScript(JavaScriptInjector.clearAILabelsJS(), completionHandler: nil)
         devToolsVM?.clearAIResults()
@@ -126,15 +164,21 @@ extension WebViewCoordinator: WKNavigationDelegate {
 
         // Run AI content analysis if enabled
         if browserVM?.aiFilterEnabled == true {
+            // Start observing immediately. Dynamic pages can mutate while the model is
+            // downloading or while the initial batch is still being classified.
+            webView.evaluateJavaScript(JavaScriptInjector.injectMutationObserverJS(), completionHandler: nil)
+
             let removeUnsafe = browserVM?.aiRemoveUnsafe ?? false
             let filter = aiFilter
             let dvm = devToolsVM
             let wv = webView
+            let generation = pageGeneration
+            initialAnalysisInProgress = true
             aiAnalysisTask = Task { @MainActor in
                 await filter?.analyzeAndLabel(webView: wv, devToolsVM: dvm, removeUnsafe: removeUnsafe)
-                // After initial pass, watch for dynamically injected content
-                guard !Task.isCancelled else { return }
-                wv.evaluateJavaScript(JavaScriptInjector.injectMutationObserverJS(), completionHandler: nil)
+                guard !Task.isCancelled, self.pageGeneration == generation else { return }
+                self.initialAnalysisInProgress = false
+                self.scheduleMutationDrain()
             }
         }
     }
@@ -318,35 +362,44 @@ extension WebViewCoordinator: WKScriptMessageHandler {
               let xpath = dict["xpath"] as? String,
               browserVM?.aiFilterEnabled == true else { return }
 
-        // Deduplicate — skip if we already have a result for this xpath
-        if devToolsVM?.aiResults.contains(where: { $0.xpath == xpath }) == true { return }
+        pendingMutations[xpath] = text
+        scheduleMutationDrain()
+    }
 
-        pendingMutations.append((text: text, xpath: xpath))
+    private func scheduleMutationDrain() {
+        guard !initialAnalysisInProgress,
+              mutationDebounceTask == nil,
+              !pendingMutations.isEmpty else { return }
 
-        // Debounce: reset the 2s timer on every incoming mutation
-        mutationDebounceTask?.cancel()
-        let mutations = pendingMutations
-        let filter = aiFilter
-        let dvm = devToolsVM
-        let removeUnsafe = browserVM?.aiRemoveUnsafe ?? false
-        guard let wv = tab?.webView else { return }
-
+        let generation = pageGeneration
         mutationDebounceTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            guard !Task.isCancelled else { return }
-            self.pendingMutations.removeAll()
-            // Process up to 10 new blocks per batch to avoid overload
-            for item in mutations.prefix(10) {
-                guard !Task.isCancelled else { break }
-                await filter?.classifySingleBlock(
-                    text: item.text,
-                    xpath: item.xpath,
-                    webView: wv,
-                    devToolsVM: dvm,
-                    removeUnsafe: removeUnsafe
-                )
-            }
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled, self.pageGeneration == generation else { return }
+            self.mutationDebounceTask = nil
+            await self.drainMutationBatch(generation: generation)
         }
+    }
+
+    private func drainMutationBatch(generation: Int) async {
+        guard generation == pageGeneration,
+              let webView = tab?.webView else { return }
+
+        let batch = Array(pendingMutations.prefix(10))
+        for (xpath, _) in batch { pendingMutations.removeValue(forKey: xpath) }
+
+        let removeUnsafe = browserVM?.aiRemoveUnsafe ?? false
+        for (xpath, text) in batch {
+            guard !Task.isCancelled, generation == pageGeneration else { return }
+            await aiFilter?.classifySingleBlock(
+                text: text,
+                xpath: xpath,
+                webView: webView,
+                devToolsVM: devToolsVM,
+                removeUnsafe: removeUnsafe
+            )
+        }
+
+        scheduleMutationDrain()
     }
 
     private func handleNetworkMessage(_ body: Any) {
