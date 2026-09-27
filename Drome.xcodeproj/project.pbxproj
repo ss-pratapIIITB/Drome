@@ -10,6 +10,7 @@
 		01EC5FCE9DC2834C6CA2E9CC /* AddressBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDDCD189B7002A7BDB4464D /* AddressBarView.swift */; };
 		100EC39E6A4C4CB3580F9A6C /* TabGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86CE86AC380DDE1BA9ABE8C9 /* TabGridView.swift */; };
 		21EDC10B33C0ADA321A028FD /* Hub in Frameworks */ = {isa = PBXBuildFile; productRef = 69C885BB300C4D203B3BAAAF /* Hub */; };
+		34E9467998D9006FE2B230E1 /* JavaScriptInjectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B26186211FE859B965A28F7D /* JavaScriptInjectorTests.swift */; };
 		388689C77C43EB25ED3DCF02 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 90F38493CCDD9C8D96D39DA0 /* MLXNN */; };
 		4B60DA7CCC425C443D91628B /* DromeWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D387D5A823F9AA0D97293F72 /* DromeWebView.swift */; };
 		4B8FE4D52DED4785E15203BD /* PageScanSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37307843DE4DFA02C5060049 /* PageScanSession.swift */; };
@@ -68,6 +69,7 @@
 		97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
 		A8F834EA9E316486106C646E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		AAE29DD84655FF4E627A2C1C /* WebViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewCoordinator.swift; sourceTree = "<group>"; };
+		B26186211FE859B965A28F7D /* JavaScriptInjectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptInjectorTests.swift; sourceTree = "<group>"; };
 		B3A8F595022539BC48BE73AD /* DeveloperToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolsView.swift; sourceTree = "<group>"; };
 		B907A1E329DE5029DA3EE5CE /* PageScanSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageScanSessionTests.swift; sourceTree = "<group>"; };
 		BCFC7461A315578535A3164F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -175,6 +177,7 @@
 		D333BF110B34ED0883E2B9CB /* DromeTests */ = {
 			isa = PBXGroup;
 			children = (
+				B26186211FE859B965A28F7D /* JavaScriptInjectorTests.swift */,
 				B907A1E329DE5029DA3EE5CE /* PageScanSessionTests.swift */,
 			);
 			path = DromeTests;
@@ -287,6 +290,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				34E9467998D9006FE2B230E1 /* JavaScriptInjectorTests.swift in Sources */,
 				8237BD7D91804B0100FA1505 /* PageScanSessionTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

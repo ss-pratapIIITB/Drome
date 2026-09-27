@@ -49,27 +49,41 @@ final class BrowserViewModel: ObservableObject {
     // MARK: - Tab Management
 
     func addNewTab(url: URL? = nil) {
+        currentTab?.scanVisibilityHandler?(false)
         let tab = BrowserTab(url: url)
         tabs.append(tab)
         currentTabIndex = tabs.count - 1
+        tab.scanVisibilityHandler?(true)
         showTabGrid = false
     }
 
     func closeTab(at index: Int) {
         guard tabs.indices.contains(index) else { return }
+        let wasCurrent = index == currentTabIndex
+        tabs[index].scanVisibilityHandler?(false)
+        tabs[index].scanVisibilityHandler = nil
         tabs[index].webView?.stopLoading()
         tabs[index].webView = nil
+        tabs[index].webViewCoordinator = nil
         tabs.remove(at: index)
         if tabs.isEmpty {
             addNewTab()
         } else {
+            if index < currentTabIndex { currentTabIndex -= 1 }
             currentTabIndex = min(currentTabIndex, tabs.count - 1)
+            if wasCurrent { currentTab?.scanVisibilityHandler?(true) }
         }
     }
 
     func selectTab(_ index: Int) {
         guard tabs.indices.contains(index) else { return }
+        guard index != currentTabIndex else {
+            showTabGrid = false
+            return
+        }
+        currentTab?.scanVisibilityHandler?(false)
         currentTabIndex = index
+        currentTab?.scanVisibilityHandler?(true)
         showTabGrid = false
     }
 
@@ -108,6 +122,18 @@ final class BrowserViewModel: ObservableObject {
     func hardReload() {
         guard let wv = currentTab?.webView else { return }
         wv.reloadFromOrigin()
+    }
+
+    func applyAISettingsToCurrentPage() {
+        guard let tab = currentTab,
+              let webView = tab.webView,
+              let coordinator = tab.webViewCoordinator else { return }
+        coordinator.updatePageActivity(
+            isActive: true,
+            filteringEnabled: aiFilterEnabled,
+            hideUnsafe: aiRemoveUnsafe,
+            webView: webView
+        )
     }
 
     // MARK: - URL Resolution

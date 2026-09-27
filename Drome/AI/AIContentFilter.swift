@@ -1,5 +1,12 @@
 import Foundation
-import WebKit
+
+struct ContentClassificationResult {
+    let isSafe: Bool
+    let reason: String
+    let method: String
+    let confidence: Double?
+    let latencyMs: Double?
+}
 
 // MARK: - AIContentFilter
 
@@ -13,128 +20,53 @@ final class AIContentFilter {
     // Keep inference small and responsive; the native runtime also enforces its own input cap.
     private let maxBlockChars = 400
 
-    // MARK: - Main entry (MainActor — WKWebView requires main thread)
+    func prepareLaya() async throws {
+        try await layaRuntime.prepare()
+    }
 
-    @MainActor
-    func analyzeAndLabel(
-        webView: WKWebView,
-        devToolsVM: DeveloperToolsViewModel?,
-        removeUnsafe: Bool
-    ) async {
-        guard !Task.isCancelled else { return }
+    func classify(text rawText: String, useLaya: Bool) async -> ContentClassificationResult? {
+        let cleanedText = cleanText(rawText)
+        guard cleanedText.count >= minBlockLength else { return nil }
 
-        webView.evaluateJavaScript(JavaScriptInjector.clearAILabelsJS(), completionHandler: nil)
-        log(devToolsVM, "🔍 Extracting content blocks…")
-
-        // ── Step 1: Extract blocks ──────────────────────────────────────────
-        guard let json = await evalJS(webView, JavaScriptInjector.extractContentBlocksJS()),
-              let data = json.data(using: .utf8),
-              let raw = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
-        else {
-            log(devToolsVM, "⚠️ Content extraction returned nothing — page may not have loaded")
-            return
+        let (keywordSafe, keywordReason) = classifyWithHeuristics(text: cleanedText)
+        if !keywordSafe {
+            return ContentClassificationResult(
+                isSafe: false,
+                reason: keywordReason,
+                method: "kw",
+                confidence: nil,
+                latencyMs: nil
+            )
         }
 
-        let meaningful = deduplicatedBlocks(raw)
-        log(devToolsVM, "📄 \(raw.count) blocks, \(meaningful.count) unique blocks qualify (≥\(minBlockLength) chars)")
-
-        guard !meaningful.isEmpty else {
-            log(devToolsVM, "No qualifying blocks — try a page with article text")
-            return
+        guard wordCount(cleanedText) > 3, useLaya else {
+            return ContentClassificationResult(
+                isSafe: true,
+                reason: keywordReason,
+                method: "kw",
+                confidence: nil,
+                latencyMs: nil
+            )
         }
 
-        let capped = Array(meaningful.prefix(40))
-
-        devToolsVM?.aiIsAnalyzing = true
-        devToolsVM?.aiTotalCount = capped.count
-        devToolsVM?.aiAnalyzedCount = 0
-        defer { devToolsVM?.aiIsAnalyzing = false }
-
-        // ── Step 2: Acknowledge every candidate immediately ────────────────
-        // Do this before a first-use download or cold model load so the filter
-        // never appears unresponsive.
-        let xpaths = capped.compactMap { $0["xpath"] as? String }
-        let pendingScript = JavaScriptInjector.markAllPendingJS(xpaths: xpaths)
-        webView.evaluateJavaScript(pendingScript, completionHandler: nil)
-        log(devToolsVM, "⏳ Marked \(xpaths.count) elements as pending")
-        await Task.yield()
-
-        // ── Step 3: Load Laya MLX on the device ─────────────────────────────
-        log(devToolsVM, "🤖 Preparing on-device Laya MLX (first use downloads the model)…")
-        let useAI: Bool
         do {
-            try await layaRuntime.prepare()
-            useAI = true
+            let response = try await layaRuntime.classify(String(cleanedText.prefix(maxBlockChars)))
+            return ContentClassificationResult(
+                isSafe: response.safe,
+                reason: response.reason,
+                method: "laya",
+                confidence: response.confidence,
+                latencyMs: response.latencyMs
+            )
         } catch {
-            useAI = false
-            log(devToolsVM, "⚠️ Laya MLX failed to load: \(error.localizedDescription)")
+            return ContentClassificationResult(
+                isSafe: keywordSafe,
+                reason: keywordReason,
+                method: "kw-fallback",
+                confidence: nil,
+                latencyMs: nil
+            )
         }
-        log(devToolsVM, useAI
-            ? "🤖 Laya MLX ready on device — routing long blocks to typed decisions"
-            : "⚠️ Laya MLX unavailable — keyword fallback for all blocks")
-
-        // ── Step 4: Classify each block, update label as we go ──────────────
-        var unsafeXPaths: [String] = []
-
-        for block in capped {
-            guard !Task.isCancelled else {
-                log(devToolsVM, "🚫 Cancelled (navigated away)")
-                break
-            }
-
-            guard let rawText = block["text"] as? String,
-                  let xpath = block["xpath"] as? String else { continue }
-
-            let cleanedText = cleanText(rawText)
-            guard cleanedText.count >= minBlockLength else { continue }
-
-            let words = wordCount(cleanedText)
-            let truncated = String(cleanedText.prefix(maxBlockChars))
-
-            let (isSafe, reason): (Bool, String)
-            let method: String
-
-            // Always run keyword pre-filter first as a hard safety override.
-            let (kwSafe, kwReason) = classifyWithHeuristics(text: cleanedText)
-            if !kwSafe {
-                (isSafe, reason) = (false, kwReason)
-                method = "kw"
-            } else if words <= 3 {
-                (isSafe, reason) = (true, "Safe content")
-                method = "kw"
-            } else if useAI {
-                (isSafe, reason) = await classifyWithLayaMLX(text: truncated, devToolsVM: devToolsVM)
-                method = "laya"
-            } else {
-                (isSafe, reason) = (kwSafe, kwReason)
-                method = "kw"
-            }
-
-            guard !Task.isCancelled else { break }
-
-            let preview = String(cleanedText.prefix(60))
-            log(devToolsVM, "[\(method)] \(isSafe ? "✅" : "🔴") \"\(preview)\" — \(reason)")
-
-            // Update element from ⏳ → ✓/⚠
-            let updateScript = JavaScriptInjector.updateLabelJS(xpath: xpath, isSafe: isSafe, reason: reason)
-            webView.evaluateJavaScript(updateScript, completionHandler: nil)
-
-            devToolsVM?.addAIResult(AIResult(xpath: xpath, isSafe: isSafe, reason: reason, preview: preview))
-            if !isSafe { unsafeXPaths.append(xpath) }
-
-            await Task.yield()
-        }
-
-        let safe = devToolsVM?.aiResults.filter { $0.isSafe }.count ?? 0
-        let unsafe = devToolsVM?.aiResults.filter { !$0.isSafe }.count ?? 0
-        log(devToolsVM, "✅ Complete — \(safe) safe · \(unsafe) unsafe · \(capped.count) total")
-
-        // ── Step 5: Remove unsafe if setting is on ──────────────────────────
-        guard !Task.isCancelled, removeUnsafe, !unsafeXPaths.isEmpty else { return }
-        log(devToolsVM, "🗑 Removing \(unsafeXPaths.count) unsafe blocks in 1.2s…")
-        try? await Task.sleep(nanoseconds: 1_200_000_000)
-        guard !Task.isCancelled else { return }
-        webView.evaluateJavaScript(JavaScriptInjector.applyFilterJS(xpaths: unsafeXPaths), completionHandler: nil)
     }
 
     // MARK: - Text cleaning
@@ -149,43 +81,6 @@ final class AIContentFilter {
         text.split(whereSeparator: { $0.isWhitespace || $0.isNewline })
             .filter { !$0.isEmpty }
             .count
-    }
-
-    private func deduplicatedBlocks(_ blocks: [[String: Any]]) -> [[String: Any]] {
-        var order: [String] = []
-        var longestByPath: [String: [String: Any]] = [:]
-
-        for block in blocks {
-            guard let text = block["text"] as? String,
-                  text.count >= minBlockLength,
-                  let path = block["xpath"] as? String,
-                  !path.isEmpty else { continue }
-
-            if longestByPath[path] == nil {
-                order.append(path)
-                longestByPath[path] = block
-            } else if text.count > ((longestByPath[path]?["text"] as? String)?.count ?? 0) {
-                longestByPath[path] = block
-            }
-        }
-
-        return order.compactMap { longestByPath[$0] }
-    }
-
-    // MARK: - Laya MLX
-
-    @MainActor
-    private func classifyWithLayaMLX(text: String, devToolsVM: DeveloperToolsViewModel?) async -> (Bool, String) {
-        log(devToolsVM, "[Laya→] Sending \(text.count) chars, \(wordCount(text)) words: \"\(String(text.prefix(120)).replacingOccurrences(of: "\n", with: " "))\"")
-        do {
-            let result = try await layaRuntime.classify(text)
-            let latency = String(format: "%.1fms", result.latencyMs)
-            log(devToolsVM, "[Laya←] safe=\(result.safe) confidence=\(String(format: "%.2f", result.confidence)) latency=\(latency) reason=\"\(result.reason)\"")
-            return (result.safe, result.reason)
-        } catch {
-            log(devToolsVM, "[Laya✗] \(error.localizedDescription) — falling back to keywords")
-            return classifyWithHeuristics(text: text)
-        }
     }
 
     // MARK: - Keyword heuristics (short blocks and Laya fallback)
@@ -228,66 +123,6 @@ final class AIContentFilter {
         return (true, "Safe content")
     }
 
-    // MARK: - Single block classifier (for live DOM mutations)
-
-    @MainActor
-    func classifySingleBlock(
-        text: String,
-        xpath: String,
-        webView: WKWebView,
-        devToolsVM: DeveloperToolsViewModel?,
-        removeUnsafe: Bool
-    ) async {
-        let cleaned = cleanText(text)
-        guard cleaned.count >= minBlockLength else { return }
-
-        let truncated = String(cleaned.prefix(maxBlockChars))
-        let words = wordCount(cleaned)
-
-        let (isSafe, reason): (Bool, String)
-        let method: String
-
-        // Mark pending first
-        webView.evaluateJavaScript(
-            JavaScriptInjector.markAllPendingJS(xpaths: [xpath]),
-            completionHandler: nil
-        )
-
-        let (kwSafe, kwReason) = classifyWithHeuristics(text: cleaned)
-        if !kwSafe {
-            (isSafe, reason) = (false, kwReason)
-            method = "kw"
-        } else if words <= 3 {
-            (isSafe, reason) = (true, "Safe content")
-            method = "kw"
-        } else if (try? await layaRuntime.prepare()) != nil {
-            (isSafe, reason) = await classifyWithLayaMLX(text: truncated, devToolsVM: devToolsVM)
-            method = "laya"
-        } else {
-            (isSafe, reason) = (kwSafe, kwReason)
-            method = "kw"
-        }
-
-        guard !Task.isCancelled else { return }
-
-        let preview = String(cleaned.prefix(60))
-        log(devToolsVM, "[live/\(method)] \(isSafe ? "✅" : "🔴") \"\(preview)\" — \(reason)")
-
-        webView.evaluateJavaScript(
-            JavaScriptInjector.updateLabelJS(xpath: xpath, isSafe: isSafe, reason: reason),
-            completionHandler: nil
-        )
-        devToolsVM?.addAIResult(AIResult(xpath: xpath, isSafe: isSafe, reason: reason, preview: preview))
-
-        if !isSafe && removeUnsafe {
-            try? await Task.sleep(nanoseconds: 600_000_000)
-            webView.evaluateJavaScript(
-                JavaScriptInjector.applyFilterJS(xpaths: [xpath]),
-                completionHandler: nil
-            )
-        }
-    }
-
     // MARK: - AI Chat
 
     func chat(message: String) async -> String {
@@ -305,24 +140,4 @@ final class AIContentFilter {
         return "I'm Drome's local AI helper. Ask me about content safety results, browser features, or why something was flagged."
     }
 
-    // MARK: - Helpers
-
-    @MainActor
-    private func evalJS(_ webView: WKWebView, _ script: String) async -> String? {
-        await withCheckedContinuation { cont in
-            webView.evaluateJavaScript(script) { result, error in
-                if let error = error { print("[Drome AI] JS error: \(error.localizedDescription)") }
-                cont.resume(returning: result as? String)
-            }
-        }
-    }
-
-    @MainActor
-    private func log(_ vm: DeveloperToolsViewModel?, _ msg: String) {
-        print("[Drome AI] \(msg)")
-        vm?.addConsoleEntry(ConsoleEntry(
-            level: .info, message: msg, source: "Drome AI",
-            line: nil, column: nil, timestamp: .now, tabID: UUID()
-        ))
-    }
 }
