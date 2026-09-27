@@ -7,12 +7,11 @@ final class WebViewCoordinator: NSObject {
     weak var devToolsVM: DeveloperToolsViewModel?
     weak var browserVM: BrowserViewModel?
     private var aiFilter: AIContentFilter?
-    private var aiAnalysisTask: Task<Void, Never>?
-
-    // Live DOM mutation handling — bounded queue that never drops busy-page updates.
-    private var mutationDebounceTask: Task<Void, Never>?
-    private var pendingMutations: [String: String] = [:]
-    private var initialAnalysisInProgress = false
+    private var scanTask: Task<Void, Never>?
+    private var pageSession: PageScanSession?
+    private var isPageActive = false
+    private var pageFinishedLoading = false
+    private var hideUnsafe = false
     private var pageGeneration = 0
 
     // Content rules must be attached before navigation. Track desired/applied state so
@@ -26,6 +25,16 @@ final class WebViewCoordinator: NSObject {
         self.devToolsVM = devToolsVM
         self.browserVM = browserVM
         self.aiFilter = AIContentFilter()
+        super.init()
+        tab.scanVisibilityHandler = { [weak self, weak tab] isActive in
+            guard let self, let webView = tab?.webView else { return }
+            self.updatePageActivity(
+                isActive: isActive,
+                filteringEnabled: self.browserVM?.aiFilterEnabled == true,
+                hideUnsafe: self.browserVM?.aiRemoveUnsafe == true,
+                webView: webView
+            )
+        }
     }
 
     @discardableResult
@@ -54,6 +63,176 @@ final class WebViewCoordinator: NSObject {
         }
 
         return changed
+    }
+
+    func updatePageActivity(
+        isActive: Bool,
+        filteringEnabled: Bool,
+        hideUnsafe: Bool,
+        webView: WKWebView
+    ) {
+        let becameActive = isActive && !isPageActive
+        isPageActive = isActive
+        self.hideUnsafe = hideUnsafe
+
+        webView.evaluateJavaScript(JavaScriptInjector.setUnsafeHiddenJS(hideUnsafe), completionHandler: nil)
+
+        guard isActive, filteringEnabled else {
+            cancelPageScan(webView: webView, clearLabels: !filteringEnabled)
+            return
+        }
+
+        if (becameActive || pageSession == nil), pageFinishedLoading {
+            beginPageScan(webView: webView)
+        }
+    }
+
+    private func cancelPageScan(webView: WKWebView, clearLabels: Bool) {
+        scanTask?.cancel()
+        scanTask = nil
+        pageSession?.cancel()
+        pageSession = nil
+        webView.evaluateJavaScript(JavaScriptInjector.stopMutationObserverJS(), completionHandler: nil)
+        if clearLabels {
+            webView.evaluateJavaScript(JavaScriptInjector.clearAILabelsJS(), completionHandler: nil)
+        }
+        if browserVM?.currentTab?.id == tab?.id {
+            devToolsVM?.clearAIResults()
+        }
+    }
+
+    private func beginPageScan(webView: WKWebView) {
+        cancelPageScan(webView: webView, clearLabels: false)
+        guard let tabID = tab?.id,
+              browserVM?.currentTab?.id == tabID,
+              browserVM?.aiFilterEnabled == true else { return }
+
+        isPageActive = true
+        let session = PageScanSession(tabID: tabID, navigationGeneration: pageGeneration)
+        pageSession = session
+        devToolsVM?.clearAIResults()
+        webView.evaluateJavaScript(JavaScriptInjector.setUnsafeHiddenJS(hideUnsafe), completionHandler: nil)
+        webView.evaluateJavaScript(JavaScriptInjector.injectMutationObserverJS(), completionHandler: nil)
+
+        let sessionID = session.id
+        scanTask = Task { @MainActor [weak self, weak webView] in
+            guard let self, let webView else { return }
+            self.log("🔍 Extracting visible content blocks…")
+            guard let json = await self.evalJS(webView, JavaScriptInjector.extractContentBlocksJS()),
+                  self.isSessionCurrent(sessionID),
+                  let data = json.data(using: .utf8),
+                  let extracted = try? JSONDecoder().decode([PageScanCandidate].self, from: data)
+            else {
+                if self.isSessionCurrent(sessionID) { self.finishScanTask(sessionID: sessionID) }
+                return
+            }
+
+            let initial = Array(extracted.prefix(40))
+            for candidate in initial { self.pageSession?.enqueue(candidate) }
+            self.devToolsVM?.aiTotalCount = initial.count
+            self.log("📄 Queued \(initial.count) visible, new or changed blocks")
+            await self.drainSession(sessionID: sessionID, webView: webView)
+        }
+    }
+
+    private func startMutationDrainIfNeeded(webView: WKWebView) {
+        guard scanTask == nil, let sessionID = pageSession?.id else { return }
+        scanTask = Task { @MainActor [weak self, weak webView] in
+            guard let self, let webView else { return }
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled else { return }
+            await self.drainSession(sessionID: sessionID, webView: webView)
+        }
+    }
+
+    private func drainSession(sessionID: UUID, webView: WKWebView) async {
+        guard isSessionCurrent(sessionID) else { return }
+        devToolsVM?.aiIsAnalyzing = true
+
+        let useLaya: Bool
+        do {
+            log("🤖 Preparing on-device Laya MLX…")
+            try await aiFilter?.prepareLaya()
+            useLaya = true
+        } catch {
+            useLaya = false
+            if isSessionCurrent(sessionID) {
+                log("⚠️ Laya unavailable — using keyword fallback")
+            }
+        }
+
+        while isSessionCurrent(sessionID), !Task.isCancelled {
+            guard let batch = pageSession?.dequeueBatch(limit: 10), !batch.isEmpty else { break }
+            webView.evaluateJavaScript(JavaScriptInjector.markAllPendingJS(candidates: batch), completionHandler: nil)
+
+            for candidate in batch {
+                guard isSessionCurrent(sessionID), !Task.isCancelled else { return }
+                let result = await aiFilter?.classify(text: candidate.text, useLaya: useLaya)
+                guard isSessionCurrent(sessionID), !Task.isCancelled, let result else { return }
+
+                webView.evaluateJavaScript(
+                    JavaScriptInjector.updateLabelJS(
+                        candidate: candidate,
+                        isSafe: result.isSafe,
+                        reason: result.reason,
+                        hideUnsafe: hideUnsafe
+                    ),
+                    completionHandler: nil
+                )
+                pageSession?.markProcessed(candidate)
+
+                let preview = String(candidate.text.prefix(60))
+                log("[\(result.method)] \(result.isSafe ? "✅" : "🔴") \"\(preview)\" — \(result.reason)")
+                devToolsVM?.addAIResult(AIResult(
+                    xpath: candidate.xpath,
+                    isSafe: result.isSafe,
+                    reason: result.reason,
+                    preview: preview
+                ))
+                await Task.yield()
+            }
+        }
+
+        finishScanTask(sessionID: sessionID)
+    }
+
+    private func finishScanTask(sessionID: UUID) {
+        guard isSessionCurrent(sessionID) else { return }
+        scanTask = nil
+        devToolsVM?.aiIsAnalyzing = false
+        if pageSession?.hasPendingCandidates == true, let webView = tab?.webView {
+            startMutationDrainIfNeeded(webView: webView)
+        }
+    }
+
+    private func isSessionCurrent(_ sessionID: UUID) -> Bool {
+        guard isPageActive, let session = pageSession else { return false }
+        return session.accepts(
+            sessionID: sessionID,
+            selectedTabID: browserVM?.currentTab?.id,
+            navigationGeneration: pageGeneration
+        )
+    }
+
+    private func evalJS(_ webView: WKWebView, _ script: String) async -> String? {
+        await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript(script) { result, _ in
+                continuation.resume(returning: result as? String)
+            }
+        }
+    }
+
+    private func log(_ message: String) {
+        print("[Drome AI] \(message)")
+        devToolsVM?.addConsoleEntry(ConsoleEntry(
+            level: .info,
+            message: message,
+            source: "Drome AI",
+            line: nil,
+            column: nil,
+            timestamp: .now,
+            tabID: tab?.id ?? UUID()
+        ))
     }
 }
 
@@ -104,17 +283,9 @@ extension WebViewCoordinator: WKNavigationDelegate {
         tab?.errorMessage = nil
         webView.addObserver(self, forKeyPath: "estimatedProgress", options: .new, context: nil)
 
-        // Cancel any in-flight AI analysis and clear old labels
-        aiAnalysisTask?.cancel()
-        aiAnalysisTask = nil
-        mutationDebounceTask?.cancel()
-        mutationDebounceTask = nil
-        pendingMutations.removeAll()
-        initialAnalysisInProgress = false
+        pageFinishedLoading = false
         pageGeneration += 1
-        webView.evaluateJavaScript(JavaScriptInjector.stopMutationObserverJS(), completionHandler: nil)
-        webView.evaluateJavaScript(JavaScriptInjector.clearAILabelsJS(), completionHandler: nil)
-        devToolsVM?.clearAIResults()
+        cancelPageScan(webView: webView, clearLabels: true)
         browserVM?.readingModeActive = false
     }
 
@@ -140,6 +311,7 @@ extension WebViewCoordinator: WKNavigationDelegate {
         tab?.title = webView.title ?? ""
         tab?.canGoBack = webView.canGoBack
         tab?.canGoForward = webView.canGoForward
+        pageFinishedLoading = true
 
         webView.removeObserver(self, forKeyPath: "estimatedProgress")
 
@@ -162,24 +334,11 @@ extension WebViewCoordinator: WKNavigationDelegate {
             webView.evaluateJavaScript(js, completionHandler: nil)
         }
 
-        // Run AI content analysis if enabled
-        if browserVM?.aiFilterEnabled == true {
-            // Start observing immediately. Dynamic pages can mutate while the model is
-            // downloading or while the initial batch is still being classified.
-            webView.evaluateJavaScript(JavaScriptInjector.injectMutationObserverJS(), completionHandler: nil)
-
-            let removeUnsafe = browserVM?.aiRemoveUnsafe ?? false
-            let filter = aiFilter
-            let dvm = devToolsVM
-            let wv = webView
-            let generation = pageGeneration
-            initialAnalysisInProgress = true
-            aiAnalysisTask = Task { @MainActor in
-                await filter?.analyzeAndLabel(webView: wv, devToolsVM: dvm, removeUnsafe: removeUnsafe)
-                guard !Task.isCancelled, self.pageGeneration == generation else { return }
-                self.initialAnalysisInProgress = false
-                self.scheduleMutationDrain()
-            }
+        if browserVM?.aiFilterEnabled == true,
+           browserVM?.currentTab?.id == tab?.id {
+            isPageActive = true
+            hideUnsafe = browserVM?.aiRemoveUnsafe == true
+            beginPageScan(webView: webView)
         }
     }
 
@@ -358,48 +517,25 @@ extension WebViewCoordinator: WKScriptMessageHandler {
 
     private func handleMutationMessage(_ body: Any) {
         guard let dict = body as? [String: Any],
+              let id = dict["id"] as? String,
               let text = dict["text"] as? String,
               let xpath = dict["xpath"] as? String,
-              browserVM?.aiFilterEnabled == true else { return }
-
-        pendingMutations[xpath] = text
-        scheduleMutationDrain()
-    }
-
-    private func scheduleMutationDrain() {
-        guard !initialAnalysisInProgress,
-              mutationDebounceTask == nil,
-              !pendingMutations.isEmpty else { return }
-
-        let generation = pageGeneration
-        mutationDebounceTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: 400_000_000)
-            guard !Task.isCancelled, self.pageGeneration == generation else { return }
-            self.mutationDebounceTask = nil
-            await self.drainMutationBatch(generation: generation)
-        }
-    }
-
-    private func drainMutationBatch(generation: Int) async {
-        guard generation == pageGeneration,
+              let fingerprint = dict["fingerprint"] as? String,
+              browserVM?.aiFilterEnabled == true,
+              browserVM?.currentTab?.id == tab?.id,
+              isPageActive,
               let webView = tab?.webView else { return }
 
-        let batch = Array(pendingMutations.prefix(10))
-        for (xpath, _) in batch { pendingMutations.removeValue(forKey: xpath) }
-
-        let removeUnsafe = browserVM?.aiRemoveUnsafe ?? false
-        for (xpath, text) in batch {
-            guard !Task.isCancelled, generation == pageGeneration else { return }
-            await aiFilter?.classifySingleBlock(
-                text: text,
-                xpath: xpath,
-                webView: webView,
-                devToolsVM: devToolsVM,
-                removeUnsafe: removeUnsafe
-            )
+        let candidate = PageScanCandidate(
+            id: id,
+            xpath: xpath,
+            text: text,
+            fingerprint: fingerprint
+        )
+        if pageSession?.enqueue(candidate) == true {
+            devToolsVM?.aiTotalCount += 1
+            startMutationDrainIfNeeded(webView: webView)
         }
-
-        scheduleMutationDrain()
     }
 
     private func handleNetworkMessage(_ body: Any) {

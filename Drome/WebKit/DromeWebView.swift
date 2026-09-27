@@ -7,7 +7,10 @@ struct DromeWebView: UIViewRepresentable {
     @EnvironmentObject var browserVM: BrowserViewModel
 
     func makeCoordinator() -> WebViewCoordinator {
-        WebViewCoordinator(tab: tab, devToolsVM: devToolsVM, browserVM: browserVM)
+        if let coordinator = tab.webViewCoordinator { return coordinator }
+        let coordinator = WebViewCoordinator(tab: tab, devToolsVM: devToolsVM, browserVM: browserVM)
+        tab.webViewCoordinator = coordinator
+        return coordinator
     }
 
     func makeUIView(context: Context) -> WKWebView {
@@ -42,6 +45,13 @@ struct DromeWebView: UIViewRepresentable {
 
     func updateUIView(_ webView: WKWebView, context: Context) {
         applySettings(webView, coordinator: context.coordinator)
+
+        context.coordinator.updatePageActivity(
+            isActive: browserVM.currentTab?.id == tab.id,
+            filteringEnabled: browserVM.aiFilterEnabled,
+            hideUnsafe: browserVM.aiRemoveUnsafe,
+            webView: webView
+        )
 
         let adBlockingEnabled = browserVM.adBlockEnabled
         Task { @MainActor in

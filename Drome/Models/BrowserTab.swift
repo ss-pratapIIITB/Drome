@@ -17,6 +17,8 @@ final class BrowserTab: ObservableObject, Identifiable {
     @Published var errorMessage: String?
 
     var webView: WKWebView?
+    var webViewCoordinator: WebViewCoordinator?
+    var scanVisibilityHandler: ((Bool) -> Void)?
 
     init(url: URL? = nil) {
         self.url = url

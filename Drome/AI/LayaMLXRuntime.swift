@@ -39,8 +39,12 @@ actor LayaMLXRuntime {
     }
 
     func classify(_ text: String) async throws -> LayaClassificationResponse {
+        try Task.checkCancellation()
         let agent = try await loadAgent()
-        return try agent.classify(text: text)
+        try Task.checkCancellation()
+        let response = try agent.classify(text: text)
+        try Task.checkCancellation()
+        return response
     }
 
     private func loadAgent(
@@ -295,6 +299,7 @@ private final class LayaAgent: @unchecked Sendable {
     }
 
     func classify(text: String, threshold: Float = 0.55) throws -> LayaClassificationResponse {
+        try Task.checkCancellation()
         let started = ContinuousClock.now
         let questions = [Self.unsafeQuestion, Self.categoryQuestion]
         let items = questions.map { prepare(state: text, question: $0) }
@@ -313,6 +318,7 @@ private final class LayaAgent: @unchecked Sendable {
         let unsafeProbabilities = softmax(logits[0, 0 ..< 2] / unsafeTemperature, axis: -1)
         let categoryProbabilities = softmax(logits[1, 0 ..< 8] / categoryTemperature, axis: -1)
         eval(unsafeProbabilities, categoryProbabilities)
+        try Task.checkCancellation()
 
         let unsafeProbability = unsafeProbabilities[1].item(Float.self)
         let categoryIndex = categoryProbabilities.argMax().item(Int32.self)

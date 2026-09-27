@@ -42,20 +42,39 @@ enum JavaScriptInjector {
         let pathsJSON = (try? String(data: JSONSerialization.data(withJSONObject: xpaths), encoding: .utf8)) ?? "[]"
         return """
         (function() {
+            const styleID = '__drome_unsafe_style';
+            if (!document.getElementById(styleID)) {
+                const style = document.createElement('style');
+                style.id = styleID;
+                style.textContent = '.__drome_unsafe_hidden { display: none !important; }';
+                document.head.appendChild(style);
+            }
             const paths = \(pathsJSON);
             paths.forEach(xpath => {
                 try {
                     const result = document.evaluate(xpath, document, null,
                         XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                     const el = result.singleNodeValue;
-                    if (el) {
-                        el.style.transition = 'opacity 0.4s ease';
-                        el.style.opacity = '0';
-                        setTimeout(() => {
-                            el.style.display = 'none';
-                        }, 400);
-                    }
+                    if (el) el.classList.add('__drome_unsafe_hidden');
                 } catch(e) {}
+            });
+        })();
+        """
+    }
+
+    static func setUnsafeHiddenJS(_ hidden: Bool) -> String {
+        """
+        (function() {
+            const className = '__drome_unsafe_hidden';
+            const styleID = '__drome_unsafe_style';
+            if (!document.getElementById(styleID)) {
+                const style = document.createElement('style');
+                style.id = styleID;
+                style.textContent = '.' + className + ' { display: none !important; }';
+                document.head.appendChild(style);
+            }
+            document.querySelectorAll('[data-drome-safe="0"]').forEach(el => {
+                el.classList.\(hidden ? "add" : "remove")(className);
             });
         })();
         """
@@ -64,9 +83,26 @@ enum JavaScriptInjector {
     static func extractContentBlocksJS() -> String {
         """
         (function() {
-            const blocks = [];
+            const blocks = new Map();
             const minLength = 25;
             const skipTags = new Set(['SCRIPT','STYLE','NOSCRIPT','CODE','PRE','SVG','MATH']);
+
+            function normalize(text) {
+                return text.replace(/\\s+/g, ' ').trim();
+            }
+
+            function fingerprint(text) {
+                let hash = 5381;
+                for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
+                return (hash >>> 0).toString(36) + '-' + text.length;
+            }
+
+            function isVisible(el) {
+                if (!el || !el.isConnected || el.hidden || el.getAttribute('aria-hidden') === 'true') return false;
+                const style = window.getComputedStyle(el);
+                return style.display !== 'none' && style.visibility !== 'hidden'
+                    && style.opacity !== '0' && el.getClientRects().length > 0;
+            }
 
             function getStableXPath(el) {
                 if (!el) return '';
@@ -79,30 +115,41 @@ enum JavaScriptInjector {
                 return "//*[@data-drome-block-id='" + id + "']";
             }
 
+            function addTextNode(node) {
+                const el = node.parentElement;
+                if (!el || !isVisible(el)) return;
+                const text = normalize(node.textContent || '');
+                if (text.length < minLength) return;
+                const xpath = getStableXPath(el);
+                const id = el.getAttribute('data-drome-block-id');
+                const contentFingerprint = fingerprint(text);
+                if (el.hasAttribute('data-drome-safe')
+                    && el.getAttribute('data-drome-fingerprint') === contentFingerprint) return;
+                const candidate = {
+                    id: id,
+                    text: text.slice(0, 500),
+                    xpath: xpath,
+                    fingerprint: contentFingerprint
+                };
+                const previous = blocks.get(id);
+                if (!previous || candidate.text.length > previous.text.length) blocks.set(id, candidate);
+            }
+
             function walk(node) {
                 if (!node) return;
                 if (node.nodeType === Node.ELEMENT_NODE) {
                     if (skipTags.has(node.tagName)) return;
-                    const style = window.getComputedStyle(node);
-                    if (style.display === 'none' || style.visibility === 'hidden') return;
+                    if (!isVisible(node)) return;
                 }
                 if (node.nodeType === Node.TEXT_NODE) {
-                    const text = node.textContent.trim();
-                    if (text.length >= minLength && node.parentElement) {
-                        const el = node.parentElement;
-                        blocks.push({
-                            text: text.slice(0, 500),
-                            xpath: getStableXPath(el),
-                            tag: el.tagName.toLowerCase()
-                        });
-                    }
+                    addTextNode(node);
                     return;
                 }
                 for (const child of node.childNodes) walk(child);
             }
 
             walk(document.body);
-            return JSON.stringify(blocks.slice(0, 200));
+            return JSON.stringify(Array.from(blocks.values()).slice(0, 200));
         })()
         """
     }
@@ -134,8 +181,9 @@ enum JavaScriptInjector {
     """
 
     /// Phase 1 — mark ALL candidate xpaths as pending (blue) in one JS call
-    static func markAllPendingJS(xpaths: [String]) -> String {
-        let json = (try? String(data: JSONSerialization.data(withJSONObject: xpaths), encoding: .utf8)) ?? "[]"
+    static func markAllPendingJS(candidates: [PageScanCandidate]) -> String {
+        let payload = candidates.map { ["xpath": $0.xpath, "fingerprint": $0.fingerprint] }
+        let json = (try? String(data: JSONSerialization.data(withJSONObject: payload), encoding: .utf8)) ?? "[]"
         let css = aiLabelCSS.replacingOccurrences(of: "`", with: "\\`")
         return """
         (function() {
@@ -145,13 +193,16 @@ enum JavaScriptInjector {
                 s.textContent = `\(css)`;
                 document.head.appendChild(s);
             }
-            const paths = \(json);
-            paths.forEach(function(xpath) {
+            const candidates = \(json);
+            candidates.forEach(function(candidate) {
                 try {
-                    const res = document.evaluate(xpath, document, null,
+                    const res = document.evaluate(candidate.xpath, document, null,
                         XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                     const el = res.singleNodeValue;
-                    if (!el || el.hasAttribute('data-drome-safe')) return;
+                    if (!el) return;
+                    if (el.hasAttribute('data-drome-safe')
+                        && el.getAttribute('data-drome-fingerprint') === candidate.fingerprint) return;
+                    el.classList.remove('__drome_unsafe_hidden');
                     el.setAttribute('data-drome-safe', 'pending');
                     el.setAttribute('data-drome-label', '⏳');
                 } catch(e) {}
@@ -161,20 +212,27 @@ enum JavaScriptInjector {
     }
 
     /// Phase 2 — update a single element from pending → safe/unsafe
-    static func updateLabelJS(xpath: String, isSafe: Bool, reason: String) -> String {
+    static func updateLabelJS(
+        candidate: PageScanCandidate,
+        isSafe: Bool,
+        reason: String,
+        hideUnsafe: Bool
+    ) -> String {
         let safeVal = isSafe ? "1" : "0"
         let labelText = isSafe ? "✓ Safe" : "⚠ Unsafe"
         let esc = { (s: String) in s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'") }
         return """
         (function() {
             try {
-                const res = document.evaluate('\(esc(xpath))', document, null,
+                const res = document.evaluate('\(esc(candidate.xpath))', document, null,
                     XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                 const el = res.singleNodeValue;
                 if (!el) return;
                 el.setAttribute('data-drome-safe', '\(safeVal)');
                 el.setAttribute('data-drome-label', '\(labelText)');
                 el.setAttribute('data-drome-reason', '\(esc(reason))');
+                el.setAttribute('data-drome-fingerprint', '\(esc(candidate.fingerprint))');
+                el.classList.\(!isSafe && hideUnsafe ? "add" : "remove")('__drome_unsafe_hidden');
             } catch(e) {}
         })();
         """
@@ -244,6 +302,25 @@ enum JavaScriptInjector {
             if (window.__dromeMutationObserver) return; // already running
 
             const skipTags = new Set(['SCRIPT','STYLE','NOSCRIPT','CODE','PRE','SVG','MATH']);
+            const pending = new Map();
+            let flushTimer = null;
+
+            function normalize(text) {
+                return text.replace(/\\s+/g, ' ').trim();
+            }
+
+            function fingerprint(text) {
+                let hash = 5381;
+                for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
+                return (hash >>> 0).toString(36) + '-' + text.length;
+            }
+
+            function isVisible(el) {
+                if (!el || !el.isConnected || el.hidden || el.getAttribute('aria-hidden') === 'true') return false;
+                const style = window.getComputedStyle(el);
+                return style.display !== 'none' && style.visibility !== 'hidden'
+                    && style.opacity !== '0' && el.getClientRects().length > 0;
+            }
 
             function getStableXPath(el) {
                 if (!el) return '';
@@ -256,50 +333,69 @@ enum JavaScriptInjector {
                 return "//*[@data-drome-block-id='" + id + "']";
             }
 
-            const observer = new MutationObserver(function(mutations) {
-                const seen = new Set();
-                for (const mut of mutations) {
-                    if (mut.type === 'characterData' && mut.target.parentElement) {
-                        const changedElement = mut.target.parentElement;
-                        changedElement.removeAttribute('data-drome-safe');
-                        changedElement.removeAttribute('data-drome-label');
-                        changedElement.removeAttribute('data-drome-reason');
-                    }
-                    const changedNodes = mut.type === 'characterData'
-                        ? [mut.target]
-                        : Array.from(mut.addedNodes);
-                    for (const node of changedNodes) {
-                        // Walk added subtree for text nodes
-                        (function walk(n) {
-                            if (!n) return;
-                            if (n.nodeType === Node.ELEMENT_NODE) {
-                                if (skipTags.has(n.tagName)) return;
-                                const s = window.getComputedStyle(n);
-                                if (s.display === 'none' || s.visibility === 'hidden') return;
-                                for (const c of n.childNodes) walk(c);
-                            } else if (n.nodeType === Node.TEXT_NODE) {
-                                const text = n.textContent.trim();
-                                if (text.length < \(minLength)) return;
-                                const el = n.parentElement;
-                                if (!el || el.hasAttribute('data-drome-safe')) return;
-                                const xpath = getStableXPath(el);
-                                if (seen.has(xpath)) return;
-                                seen.add(xpath);
-                                try {
-                                    window.webkit.messageHandlers.dromeMutation.postMessage({
-                                        text: text.slice(0, 500),
-                                        xpath: xpath
-                                    });
-                                } catch(e) {}
-                            }
-                        })(node);
-                    }
+            function queueTextNode(node) {
+                const el = node.parentElement;
+                if (!el || !isVisible(el)) return;
+                const text = normalize(node.textContent || '');
+                if (text.length < \(minLength)) return;
+                const xpath = getStableXPath(el);
+                const id = el.getAttribute('data-drome-block-id');
+                const contentFingerprint = fingerprint(text);
+                if (el.hasAttribute('data-drome-safe')
+                    && el.getAttribute('data-drome-fingerprint') === contentFingerprint) return;
+                pending.set(id, {
+                    id: id,
+                    text: text.slice(0, 500),
+                    xpath: xpath,
+                    fingerprint: contentFingerprint
+                });
+            }
+
+            function scan(root) {
+                if (!root) return;
+                if (root.nodeType === Node.TEXT_NODE) {
+                    queueTextNode(root);
+                    return;
                 }
+                if (root.nodeType !== Node.ELEMENT_NODE || skipTags.has(root.tagName) || !isVisible(root)) return;
+                const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+                while (walker.nextNode()) queueTextNode(walker.currentNode);
+            }
+
+            function scheduleFlush() {
+                clearTimeout(flushTimer);
+                flushTimer = setTimeout(function() {
+                    const candidates = Array.from(pending.values());
+                    pending.clear();
+                    candidates.forEach(candidate => {
+                        try { window.webkit.messageHandlers.dromeMutation.postMessage(candidate); } catch(e) {}
+                    });
+                }, 150);
+            }
+
+            function isOnlyDromeClassChange(mut) {
+                if (mut.type !== 'attributes' || mut.attributeName !== 'class') return false;
+                const clean = value => (value || '').split(/\\s+/).filter(Boolean)
+                    .filter(name => name !== '__drome_unsafe_hidden').sort().join(' ');
+                return clean(mut.oldValue) === clean(mut.target.getAttribute('class'));
+            }
+
+            const observer = new MutationObserver(function(mutations) {
+                for (const mut of mutations) {
+                    if (isOnlyDromeClassChange(mut)) continue;
+                    if (mut.type === 'characterData') scan(mut.target);
+                    else if (mut.type === 'attributes') scan(mut.target);
+                    else for (const node of mut.addedNodes) scan(node);
+                }
+                if (pending.size) scheduleFlush();
             });
 
             observer.observe(document.body, {
                 childList: true,
                 characterData: true,
+                attributes: true,
+                attributeOldValue: true,
+                attributeFilter: ['hidden', 'open', 'aria-expanded', 'class', 'style'],
                 subtree: true
             });
             window.__dromeMutationObserver = observer;
@@ -325,8 +421,11 @@ enum JavaScriptInjector {
                 el.removeAttribute('data-drome-safe');
                 el.removeAttribute('data-drome-label');
                 el.removeAttribute('data-drome-reason');
+                el.removeAttribute('data-drome-fingerprint');
+                el.classList.remove('__drome_unsafe_hidden');
             });
             document.getElementById('__drome_ai_style')?.remove();
+            document.getElementById('__drome_unsafe_style')?.remove();
         })();
         """
     }
