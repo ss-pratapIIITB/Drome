@@ -19,6 +19,8 @@ A full-featured iOS browser built on WKWebView with developer tools, ad blocking
   - Runs the 421M-parameter FP16 model with MLX Swift on the Apple GPU
   - Downloads the ~843 MB checkpoint once; page content never leaves the device
   - Includes a Settings → Laya MLX playground for inspecting decisions, confidence, and latency
+  - Cancels queued inference when the visible page changes and incrementally scans expanded or dynamically loaded content
+  - Provides a reversible **Hide Unsafe Content** setting without reloading or rescanning the page
   - Finds the *smallest* DOM container wrapping the flagged content and removes it
 - **Forced dark mode** via CSS invert injection
 - **Custom user agent** with common presets (desktop Safari, Chrome, Firefox, Googlebot)
