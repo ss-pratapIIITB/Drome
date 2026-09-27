@@ -18,13 +18,16 @@ struct SettingsView: View {
                         Label("AI Content Filter", systemImage: "sparkles.rectangle.stack")
                     }
                     .onChange(of: browserVM.aiFilterEnabled) { _ in
-                        browserVM.reload()
+                        browserVM.applyAISettingsToCurrentPage()
                     }
                     if browserVM.aiFilterEnabled {
                         Toggle(isOn: $browserVM.aiRemoveUnsafe) {
-                            Label("Remove Unsafe Content", systemImage: "xmark.shield")
+                            Label("Hide Unsafe Content", systemImage: "eye.slash")
                         }
                         .padding(.leading, 24)
+                        .onChange(of: browserVM.aiRemoveUnsafe) { _ in
+                            browserVM.applyAISettingsToCurrentPage()
+                        }
 
                         NavigationLink {
                             LayaMLXSettingsView()
