@@ -56,4 +56,18 @@ targets:
         INFOPLIST_FILE: Drome/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     scheme:
-      testTargets: []
+      testTargets:
+        - DromeTests
+
+  DromeTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: DromeTests
+    dependencies:
+      - target: Drome
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.surendrapratap.drome.tests
+        GENERATE_INFOPLIST_FILE: YES

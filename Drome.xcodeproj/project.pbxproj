@@ -8,13 +8,11 @@
 
 /* Begin PBXBuildFile section */
 		01EC5FCE9DC2834C6CA2E9CC /* AddressBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDDCD189B7002A7BDB4464D /* AddressBarView.swift */; };
-		AA0000000000000000000002 /* LayaMLXRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000001 /* LayaMLXRuntime.swift */; };
-		AA0000000000000000000011 /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000031 /* MLX */; };
-		AA0000000000000000000012 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000032 /* MLXNN */; };
-		AA0000000000000000000013 /* Hub in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000033 /* Hub */; };
-		AA0000000000000000000014 /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = AA0000000000000000000034 /* Tokenizers */; };
 		100EC39E6A4C4CB3580F9A6C /* TabGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86CE86AC380DDE1BA9ABE8C9 /* TabGridView.swift */; };
+		21EDC10B33C0ADA321A028FD /* Hub in Frameworks */ = {isa = PBXBuildFile; productRef = 69C885BB300C4D203B3BAAAF /* Hub */; };
+		388689C77C43EB25ED3DCF02 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 90F38493CCDD9C8D96D39DA0 /* MLXNN */; };
 		4B60DA7CCC425C443D91628B /* DromeWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D387D5A823F9AA0D97293F72 /* DromeWebView.swift */; };
+		4B8FE4D52DED4785E15203BD /* PageScanSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37307843DE4DFA02C5060049 /* PageScanSession.swift */; };
 		4FB6570CE287505BE233B0AD /* DeveloperToolsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91CAB159E7E15BC63F3CD9DF /* DeveloperToolsViewModel.swift */; };
 		500B2E4BB075E82352D4C41B /* BlockRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2607DBF82ABC8FC0EA38D564 /* BlockRule.swift */; };
 		50D1C1F434BC5FDC1EC6102B /* NetworkEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97AD4DF60F434CC5F82A2208 /* NetworkEntry.swift */; };
@@ -22,8 +20,11 @@
 		69CE11B10C3FBD89F6A584A7 /* ConsoleEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22708312843519B9DDC1094F /* ConsoleEntry.swift */; };
 		7018037059F1CD4B5C3EF985 /* BrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E88DBD9E4031F241BE5E3E0 /* BrowserViewModel.swift */; };
 		71247E4DAE0891970EE905DD /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65223219DD91D8ABE455B6AD /* SettingsView.swift */; };
+		8237BD7D91804B0100FA1505 /* PageScanSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B907A1E329DE5029DA3EE5CE /* PageScanSessionTests.swift */; };
+		855274FE22356E481AD7112B /* Tokenizers in Frameworks */ = {isa = PBXBuildFile; productRef = 60CEC6361A7CADCE161EBAF5 /* Tokenizers */; };
 		8B30DAE980DB73B1C154B564 /* DeveloperToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A8F595022539BC48BE73AD /* DeveloperToolsView.swift */; };
 		9AA89917A18533CB87F42318 /* DromeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 160100EC20EC6C4743769630 /* DromeApp.swift */; };
+		9AB3DE8B43BDDB817FEB69BC /* LayaMLXRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36B84EF6F6B65422BA0B229F /* LayaMLXRuntime.swift */; };
 		A0367096D3724122C6AE0570 /* WebViewCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAE29DD84655FF4E627A2C1C /* WebViewCoordinator.swift */; };
 		AC11B7F56B9AC033F7208B70 /* JavaScriptStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72634340D62857CCCF84CD52 /* JavaScriptStrings.swift */; };
 		AC2A1DF6DE168B8A9D2EF013 /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3897C1E1B723E9AAB1033B8A /* BrowserView.swift */; };
@@ -31,20 +32,34 @@
 		D0862BBAAAEECAAF2E979A0D /* WebsiteBlockerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D79E988E2FA950DA88B1A7 /* WebsiteBlockerView.swift */; };
 		D89C93CECC19F17AD44AB4A4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFC7461A315578535A3164F /* ContentView.swift */; };
 		F3ADB354D96763E100DA42B2 /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */; };
+		F5B80CC2DBB2DDAE4487D91C /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = F1FD4082D4A21A8A4625254B /* MLX */; };
 		FE1D6A161855A064AD17EE5E /* JavaScriptInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C328FE99767FC874ACE1E59 /* JavaScriptInjector.swift */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		BBEC1528F6F1407697F0B464 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E80B08AC1B7D6B07DBBEA6FC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EE75DD6986B511121D1CEB08;
+			remoteInfo = Drome;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		0B132409A2ADA6642FA16408 /* AIContentFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIContentFilter.swift; sourceTree = "<group>"; };
-		AA0000000000000000000001 /* LayaMLXRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayaMLXRuntime.swift; sourceTree = "<group>"; };
 		160100EC20EC6C4743769630 /* DromeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DromeApp.swift; sourceTree = "<group>"; };
 		22708312843519B9DDC1094F /* ConsoleEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConsoleEntry.swift; sourceTree = "<group>"; };
 		2607DBF82ABC8FC0EA38D564 /* BlockRule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlockRule.swift; sourceTree = "<group>"; };
+		36B84EF6F6B65422BA0B229F /* LayaMLXRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LayaMLXRuntime.swift; sourceTree = "<group>"; };
+		37307843DE4DFA02C5060049 /* PageScanSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageScanSession.swift; sourceTree = "<group>"; };
 		3897C1E1B723E9AAB1033B8A /* BrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserView.swift; sourceTree = "<group>"; };
+		556DB9FF680979C7CA1FA0A9 /* Drome.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Drome.entitlements; sourceTree = "<group>"; };
 		5C328FE99767FC874ACE1E59 /* JavaScriptInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptInjector.swift; sourceTree = "<group>"; };
 		65223219DD91D8ABE455B6AD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		687128D3FBA2AA8E1D65E866 /* ContentBlocker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentBlocker.swift; sourceTree = "<group>"; };
 		72634340D62857CCCF84CD52 /* JavaScriptStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptStrings.swift; sourceTree = "<group>"; };
+		7B09025AAD6417276549D2DF /* DromeTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DromeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E88DBD9E4031F241BE5E3E0 /* BrowserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserViewModel.swift; sourceTree = "<group>"; };
 		86CE86AC380DDE1BA9ABE8C9 /* TabGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabGridView.swift; sourceTree = "<group>"; };
 		91CAB159E7E15BC63F3CD9DF /* DeveloperToolsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolsViewModel.swift; sourceTree = "<group>"; };
@@ -52,9 +67,9 @@
 		97AD4DF60F434CC5F82A2208 /* NetworkEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkEntry.swift; sourceTree = "<group>"; };
 		97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
 		A8F834EA9E316486106C646E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		AA0000000000000000000003 /* Drome.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Drome.entitlements; sourceTree = "<group>"; };
 		AAE29DD84655FF4E627A2C1C /* WebViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewCoordinator.swift; sourceTree = "<group>"; };
 		B3A8F595022539BC48BE73AD /* DeveloperToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolsView.swift; sourceTree = "<group>"; };
+		B907A1E329DE5029DA3EE5CE /* PageScanSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageScanSessionTests.swift; sourceTree = "<group>"; };
 		BCFC7461A315578535A3164F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C80B8A0600D72899A0373A68 /* Drome.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Drome.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D387D5A823F9AA0D97293F72 /* DromeWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DromeWebView.swift; sourceTree = "<group>"; };
@@ -66,10 +81,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AA0000000000000000000013 /* Hub in Frameworks */,
-				AA0000000000000000000011 /* MLX in Frameworks */,
-				AA0000000000000000000012 /* MLXNN in Frameworks */,
-				AA0000000000000000000014 /* Tokenizers in Frameworks */,
+				F5B80CC2DBB2DDAE4487D91C /* MLX in Frameworks */,
+				388689C77C43EB25ED3DCF02 /* MLXNN in Frameworks */,
+				21EDC10B33C0ADA321A028FD /* Hub in Frameworks */,
+				855274FE22356E481AD7112B /* Tokenizers in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -80,7 +95,7 @@
 			isa = PBXGroup;
 			children = (
 				DF72E53659CE5EB03BFA89F7 /* Drome */,
-				B22DF2C890B94DD3F86C1F56 /* Frameworks */,
+				D333BF110B34ED0883E2B9CB /* DromeTests */,
 				1FF1E03EB2FF940595C66C2D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -89,6 +104,7 @@
 			isa = PBXGroup;
 			children = (
 				C80B8A0600D72899A0373A68 /* Drome.app */,
+				7B09025AAD6417276549D2DF /* DromeTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -115,7 +131,8 @@
 			isa = PBXGroup;
 			children = (
 				0B132409A2ADA6642FA16408 /* AIContentFilter.swift */,
-				AA0000000000000000000001 /* LayaMLXRuntime.swift */,
+				36B84EF6F6B65422BA0B229F /* LayaMLXRuntime.swift */,
+				37307843DE4DFA02C5060049 /* PageScanSession.swift */,
 			);
 			path = AI;
 			sourceTree = "<group>";
@@ -144,13 +161,6 @@
 			path = WebKit;
 			sourceTree = "<group>";
 		};
-		B22DF2C890B94DD3F86C1F56 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		BB1CBF99F8FA764263DD16D5 /* Models */ = {
 			isa = PBXGroup;
 			children = (
@@ -162,11 +172,19 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		D333BF110B34ED0883E2B9CB /* DromeTests */ = {
+			isa = PBXGroup;
+			children = (
+				B907A1E329DE5029DA3EE5CE /* PageScanSessionTests.swift */,
+			);
+			path = DromeTests;
+			sourceTree = "<group>";
+		};
 		DF72E53659CE5EB03BFA89F7 /* Drome */ = {
 			isa = PBXGroup;
 			children = (
+				556DB9FF680979C7CA1FA0A9 /* Drome.entitlements */,
 				160100EC20EC6C4743769630 /* DromeApp.swift */,
-				AA0000000000000000000003 /* Drome.entitlements */,
 				A8F834EA9E316486106C646E /* Info.plist */,
 				854B717E43FEC971DAE2EFF4 /* AI */,
 				56A5159F163A8433C64919E7 /* JavaScript */,
@@ -181,6 +199,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		95B2AE3E93D6060F52126B53 /* DromeTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8CC581BE3E8268F1735F9872 /* Build configuration list for PBXNativeTarget "DromeTests" */;
+			buildPhases = (
+				37B58CC2C433728B6B02820E /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				66999D900005D409BA519EE2 /* PBXTargetDependency */,
+			);
+			name = DromeTests;
+			packageProductDependencies = (
+			);
+			productName = DromeTests;
+			productReference = 7B09025AAD6417276549D2DF /* DromeTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		EE75DD6986B511121D1CEB08 /* Drome */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D2B293DA0BC5303B68991743 /* Build configuration list for PBXNativeTarget "Drome" */;
@@ -194,10 +230,10 @@
 			);
 			name = Drome;
 			packageProductDependencies = (
-				AA0000000000000000000031 /* MLX */,
-				AA0000000000000000000032 /* MLXNN */,
-				AA0000000000000000000033 /* Hub */,
-				AA0000000000000000000034 /* Tokenizers */,
+				F1FD4082D4A21A8A4625254B /* MLX */,
+				90F38493CCDD9C8D96D39DA0 /* MLXNN */,
+				69C885BB300C4D203B3BAAAF /* Hub */,
+				60CEC6361A7CADCE161EBAF5 /* Tokenizers */,
 			);
 			productName = Drome;
 			productReference = C80B8A0600D72899A0373A68 /* Drome.app */;
@@ -212,6 +248,10 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
+					95B2AE3E93D6060F52126B53 = {
+						DevelopmentTeam = PAZR439BX6;
+						ProvisioningStyle = Automatic;
+					};
 					EE75DD6986B511121D1CEB08 = {
 						DevelopmentTeam = PAZR439BX6;
 						ProvisioningStyle = Automatic;
@@ -228,26 +268,34 @@
 			);
 			mainGroup = 18BE726D9BC36C54B9A6A2BC;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				A5110139B2F68D34E95E1022 /* XCRemoteSwiftPackageReference "mlx-swift" */,
+				538E0016DA924AA0E209BAE8 /* XCRemoteSwiftPackageReference "swift-transformers" */,
+			);
 			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
-			packageReferences = (
-				AA0000000000000000000021 /* XCRemoteSwiftPackageReference "mlx-swift" */,
-				AA0000000000000000000022 /* XCRemoteSwiftPackageReference "swift-transformers" */,
-			);
 			targets = (
 				EE75DD6986B511121D1CEB08 /* Drome */,
+				95B2AE3E93D6060F52126B53 /* DromeTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXSourcesBuildPhase section */
+		37B58CC2C433728B6B02820E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8237BD7D91804B0100FA1505 /* PageScanSessionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		447D5588C533FBCD90015F99 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				B2B0C109BE3C3F497E748129 /* AIContentFilter.swift in Sources */,
-				AA0000000000000000000002 /* LayaMLXRuntime.swift in Sources */,
 				01EC5FCE9DC2834C6CA2E9CC /* AddressBarView.swift in Sources */,
 				500B2E4BB075E82352D4C41B /* BlockRule.swift in Sources */,
 				F3ADB354D96763E100DA42B2 /* BrowserTab.swift in Sources */,
@@ -262,7 +310,9 @@
 				4B60DA7CCC425C443D91628B /* DromeWebView.swift in Sources */,
 				FE1D6A161855A064AD17EE5E /* JavaScriptInjector.swift in Sources */,
 				AC11B7F56B9AC033F7208B70 /* JavaScriptStrings.swift in Sources */,
+				9AB3DE8B43BDDB817FEB69BC /* LayaMLXRuntime.swift in Sources */,
 				50D1C1F434BC5FDC1EC6102B /* NetworkEntry.swift in Sources */,
+				4B8FE4D52DED4785E15203BD /* PageScanSession.swift in Sources */,
 				71247E4DAE0891970EE905DD /* SettingsView.swift in Sources */,
 				100EC39E6A4C4CB3580F9A6C /* TabGridView.swift in Sources */,
 				A0367096D3724122C6AE0570 /* WebViewCoordinator.swift in Sources */,
@@ -272,7 +322,33 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		66999D900005D409BA519EE2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EE75DD6986B511121D1CEB08 /* Drome */;
+			targetProxy = BBEC1528F6F1407697F0B464 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		037743420DAC9B0B2C25D9AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.surendrapratap.drome.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Drome.app/Drome";
+			};
+			name = Debug;
+		};
 		0CD843C649429DBB7A82085B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -406,6 +482,24 @@
 			};
 			name = Release;
 		};
+		1507A590D320267419EA6086 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.surendrapratap.drome.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Drome.app/Drome";
+			};
+			name = Release;
+		};
 		2D6C77E465E5CA1B230D1B8D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -449,6 +543,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		8CC581BE3E8268F1735F9872 /* Build configuration list for PBXNativeTarget "DromeTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				037743420DAC9B0B2C25D9AA /* Debug */,
+				1507A590D320267419EA6086 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		BB8D8C2C06B714589AA59BB3 /* Build configuration list for PBXProject "Drome" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -470,15 +573,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		AA0000000000000000000021 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/ml-explore/mlx-swift";
-			requirement = {
-				kind = revision;
-				revision = 901941965d82e4a216d4d117231d847d194c563d;
-			};
-		};
-		AA0000000000000000000022 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
+		538E0016DA924AA0E209BAE8 /* XCRemoteSwiftPackageReference "swift-transformers" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/huggingface/swift-transformers";
 			requirement = {
@@ -486,28 +581,36 @@
 				revision = 9088d55148b799e853cf4e039b0f0a1e3efe034c;
 			};
 		};
+		A5110139B2F68D34E95E1022 /* XCRemoteSwiftPackageReference "mlx-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/ml-explore/mlx-swift";
+			requirement = {
+				kind = revision;
+				revision = 901941965d82e4a216d4d117231d847d194c563d;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		AA0000000000000000000031 /* MLX */ = {
+		60CEC6361A7CADCE161EBAF5 /* Tokenizers */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA0000000000000000000021 /* XCRemoteSwiftPackageReference "mlx-swift" */;
-			productName = MLX;
+			package = 538E0016DA924AA0E209BAE8 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			productName = Tokenizers;
 		};
-		AA0000000000000000000032 /* MLXNN */ = {
+		69C885BB300C4D203B3BAAAF /* Hub */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA0000000000000000000021 /* XCRemoteSwiftPackageReference "mlx-swift" */;
-			productName = MLXNN;
-		};
-		AA0000000000000000000033 /* Hub */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = AA0000000000000000000022 /* XCRemoteSwiftPackageReference "swift-transformers" */;
+			package = 538E0016DA924AA0E209BAE8 /* XCRemoteSwiftPackageReference "swift-transformers" */;
 			productName = Hub;
 		};
-		AA0000000000000000000034 /* Tokenizers */ = {
+		90F38493CCDD9C8D96D39DA0 /* MLXNN */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = AA0000000000000000000022 /* XCRemoteSwiftPackageReference "swift-transformers" */;
-			productName = Tokenizers;
+			package = A5110139B2F68D34E95E1022 /* XCRemoteSwiftPackageReference "mlx-swift" */;
+			productName = MLXNN;
+		};
+		F1FD4082D4A21A8A4625254B /* MLX */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A5110139B2F68D34E95E1022 /* XCRemoteSwiftPackageReference "mlx-swift" */;
+			productName = MLX;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
