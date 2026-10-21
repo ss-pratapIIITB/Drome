@@ -24,14 +24,20 @@ if [ -n "${SIMULATOR_UDID:-}" ]; then
   UDID="$SIMULATOR_UDID"
 else
   UDID="$(xcrun simctl list devices available --json | python3 -c '
-import json, sys
+import json, re, sys
 
 try:
     devices = json.load(sys.stdin)["devices"]
 except Exception:
     sys.exit(0)
 
-for runtime in sorted(devices):
+def version(runtime):
+    match = re.search(r"iOS-(\d+)-(\d+)", runtime)
+    return tuple(int(part) for part in match.groups()) if match else (0, 0)
+
+for runtime in sorted(devices, key=version, reverse=True):
+    if "iOS-" not in runtime:
+        continue
     for device in devices[runtime]:
         if device.get("isAvailable") and "iPhone" in device.get("name", ""):
             print(device["udid"])
