@@ -63,7 +63,7 @@ or unbounded before touching the UI.
   is created lazily. Closing/creating blank tabs no longer creates a WebKit
   process.
 - `ContentBlocker` looks up WebKit's persisted rule list before compiling,
-  deduplicates concurrent loads with a shared task, and prewarms at app launch.
+  and deduplicates concurrent loads with a shared task.
 - `AIContentFilter` and `LayaMLXRuntime` classify in batches. The unsafe
   question runs first; the category question runs only for flagged blocks.
 - `WebViewCoordinator` drains batches of four, applies all labels from a batch
