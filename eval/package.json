@@ -1,0 +1,13 @@
+{
+  "name": "drome-eval",
+  "private": true,
+  "type": "module",
+  "description": "Local evaluation harness for Drome's on-device content filter",
+  "scripts": {
+    "extract": "node extract_blocks.mjs",
+    "audit": "node extract_blocks.mjs --audit"
+  },
+  "dependencies": {
+    "playwright-core": "^1.55.0"
+  }
+}
