@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: build/SourcePackages
+          key: ${{ runner.os }}-spm-${{ hashFiles('Drome.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve packages
+        run: >-
+          xcodebuild
+          -resolvePackageDependencies
+          -project Drome.xcodeproj
+          -scheme Drome
+          -clonedSourcePackagesDirPath build/SourcePackages
+
+      - name: Build
+        run: >-
+          xcodebuild
+          -project Drome.xcodeproj
+          -scheme Drome
+          -destination 'generic/platform=iOS Simulator'
+          -clonedSourcePackagesDirPath build/SourcePackages
+          -derivedDataPath build/DerivedData
+          CODE_SIGNING_ALLOWED=NO
+          build
+
+      - name: Test
+        env:
+          XCODEBUILD_ARGS: >-
+            -clonedSourcePackagesDirPath build/SourcePackages
+            -derivedDataPath build/DerivedData
+        run: ./scripts/run-tests.sh

@@ -1,0 +1,61 @@
+name: Unsigned IPA
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-ipa:
+    name: Build unsigned IPA
+    runs-on: macos-26
+    timeout-minutes: 40
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: build/SourcePackages
+          key: ${{ runner.os }}-spm-${{ hashFiles('Drome.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve packages
+        run: >-
+          xcodebuild
+          -resolvePackageDependencies
+          -project Drome.xcodeproj
+          -scheme Drome
+          -clonedSourcePackagesDirPath build/SourcePackages
+
+      - name: Build IPA
+        env:
+          XCODEBUILD_ARGS: >-
+            -clonedSourcePackagesDirPath build/SourcePackages
+            -derivedDataPath build/DerivedData
+        run: ./scripts/build-ipa.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drome-unsigned-ipa
+          path: |
+            build/Drome-unsigned.ipa
+            build/Drome-unsigned.ipa.sha256
+          if-no-files-found: error
+
+      - name: Attach IPA to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/Drome-unsigned.ipa
+            build/Drome-unsigned.ipa.sha256
+          generate_release_notes: true
