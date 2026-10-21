@@ -1,93 +1,137 @@
-# Drome — iOS Browser
+# Drome
 
-A full-featured iOS browser built on WKWebView with developer tools, ad blocking, website blocking, and a fully on-device AI content filter powered by Laya MLX Swift.
+**An iOS browser with a fully on-device AI content filter.**
 
-## Features
+Drome pairs a real WKWebView browser — tabs, developer tools, blockers, downloads — with a native Swift port of a 421M-parameter decision model running on MLX. Page text is classified locally on the Apple GPU. There is no cloud inference, no API key, no Python process, and no Apple Intelligence dependency.
 
-- **Multi-tab browsing** with tab grid and snapshots
-- **Ad and tracker blocking** enabled by default via WKContentRuleList (user-toggleable)
-- **Website blocker** — block any domain + all its subdomains
-- **Developer Tools** panel (drag to resize):
-  - Console — live JS log/warn/error interception with filtering
-  - Network — fetch + XHR request/response monitoring with detail view
-  - Elements — live DOM tree inspector
-  - Storage — localStorage / sessionStorage viewer
-  - Cookies — full cookie inspector
-  - JS REPL — evaluate JS in the page context from within the app
-- **AI Content Filter** — uses Laya MLX typed decisions directly on the iPhone to identify and remove anxiety-triggering/offensive content. Falls back to a keyword heuristic if the model cannot load.
-  - Runs Mozilla's Readability scoring to find meaningful text blocks
-  - Runs the 421M-parameter FP16 model with MLX Swift on the Apple GPU
-  - Downloads the ~843 MB checkpoint once; page content never leaves the device
-  - Includes a Settings → Laya MLX playground for inspecting decisions, confidence, and latency
-  - Cancels queued inference when the visible page changes and incrementally scans expanded or dynamically loaded content
-  - Provides a reversible **Hide Unsafe Content** setting without reloading or rescanning the page
-  - Finds the *smallest* DOM container wrapping the flagged content and removes it
-- **Forced dark mode** via CSS invert injection
-- **Custom user agent** with common presets (desktop Safari, Chrome, Firefox, Googlebot)
-- **Pluggable search engine** (DuckDuckGo default, Google, Bing, Brave, Ecosia, Startpage)
-- **File downloads** via WKDownloadDelegate
-- **Safari Remote Web Inspector** support (`isInspectable = true`)
-- Pop-up blocking, JavaScript toggle, Reader-mode-ready architecture
+[![CI](https://github.com/ss-pratapIIITB/Drome/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ss-pratapIIITB/Drome/actions/workflows/ci.yml)
+![iOS 18+](https://img.shields.io/badge/iOS-18%2B-0A84FF)
+![Swift 5](https://img.shields.io/badge/Swift-5-F05138)
+![MLX Swift](https://img.shields.io/badge/MLX-Swift-5EEAD4)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
-## Setup in Xcode
+![Drome architecture](docs/assets/architecture.svg)
 
-1. Open Xcode → **File → New → Project** → iOS App
-2. Product Name: **Drome**, Interface: **SwiftUI**, Language: **Swift**
-3. Set deployment target to **iOS 18.0**
-4. Delete the generated `ContentView.swift`
-5. Drag all `.swift` files from this directory into the Xcode project, maintaining the group structure
-6. Add the two `.js` files to the project target:
-   - `Drome/JavaScript/drome-bridge.js`
-   - `Drome/JavaScript/drome-readability.js`
-   - In the file inspector, ensure **Target Membership → Drome** is checked so they are included in the bundle
-7. Build and run on device or simulator
+## Highlights
 
-## Laya MLX Swift
+- **Native MLX model port** — ModernBERT encoder, two-layer decision transformer, marker-token scoring head, prompt construction, and calibrated temperatures implemented in Swift.
+- **On-device by construction** — the 843 MB FP16 checkpoint downloads once; inference is local and page text never leaves the phone.
+- **DOM-aware removal** — finds the smallest container around flagged text, so one bad paragraph does not take down the whole article.
+- **Cancellation-aware scanning** — queued work is dropped and late results are rejected when the page changes or the tab loses focus.
+- **Incremental rescans** — mutation observers pick up expanded or dynamically loaded content without reclassifying unchanged blocks.
+- **A real browser around it** — multi-tab browsing, snapshots, ad/tracker blocking, website blocking, dark mode, custom user agents, downloads, and a resizable developer-tools panel.
 
-The native Swift port mirrors Laya's ModernBERT encoder, decision transformer,
-marker-token scoring head, prompt construction, and probability calibration.
-The first AI analysis downloads `aac6fef/laya-mlx` from Hugging Face; subsequent
-inference is offline and fully on-device.
+## Why this project exists
 
-See [`docs/laya-mlx-swift.md`](docs/laya-mlx-swift.md) for model size, runtime
-requirements, and the required cross-runtime fidelity validation.
+Most "AI in an app" demos call a remote endpoint. Drome is an exercise in the harder version: shipping a language model inside the app, on hardware you do not control, while keeping the UI responsive.
+
+The interesting engineering is not the prompt. It is the memory budget, the tensor layout, the tokenizer special tokens, the calibration temperatures, the cancellation semantics, and the DOM strategy that turns a classifier's decision into a minimal, reversible visual change.
+
+## Demo
+
+A 90-second recording plan — including the reversible hide, the Laya playground, and the airplane-mode proof — is in [`docs/demo.md`](docs/demo.md). The same document lists the screenshots and GIF the repository should carry.
+
+## Install
+
+The app is not on the App Store. Build it from source or sideload a signed copy:
+
+- **[Installation and sideloading guide](docs/install.md)** — Xcode, Sideloadly, and AltStore/SideStore paths, including free-Apple-ID limitations.
+- **Unsigned IPA** — every `v*` tag produces an unsigned IPA artifact in GitHub Actions; sign it with your own Apple ID before installing.
+
+Requirements: iOS 18 or later, an Apple-silicon iPhone (iPhone 15 Pro or newer is the practical baseline for the model), and about 1 GB of free storage.
 
 ## Architecture
 
 ```
 DromeApp
-└── ContentView (EnvironmentObject: BrowserViewModel)
+└── ContentView (BrowserViewModel)
     ├── BrowserView
-    │   ├── AddressBarView       — URL bar, progress, security indicator, share
-    │   ├── DromeWebView         — UIViewRepresentable → WKWebView
-    │   │   └── WebViewCoordinator
-    │   │       ├── WKNavigationDelegate  — blocking, progress, snapshots, AI trigger
-    │   │       ├── WKUIDelegate          — alerts, popups
-    │   │       ├── WKScriptMessageHandler — console + network events from JS
-    │   │       └── WKDownloadDelegate    — file downloads
-    │   ├── DeveloperToolsView   — resizable bottom panel
-    │   └── BottomToolbarView    — back/forward/tabs/devtools/settings
-    ├── TabGridView              — tab overview with screenshots
-    ├── SettingsView             — all toggles and options
-    └── WebsiteBlockerView       — blocked domains list
+    │   ├── AddressBarView
+    │   ├── DromeWebView ── WebViewCoordinator
+    │   │                    ├── navigation, progress, snapshots
+    │   │                    ├── console + network message bridge
+    │   │                    ├── downloads
+    │   │                    └── AI scan trigger
+    │   ├── DeveloperToolsView
+    │   └── BottomToolbarView
+    ├── TabGridView
+    ├── SettingsView
+    └── WebsiteBlockerView
 
-AI Pipeline (per page load):
+AI pipeline (per visible page):
   WebViewCoordinator.didFinish
-    → AIContentFilter.analyzeAndFilter(webView:)
-      → JS: extract text blocks via Readability scoring
-      → Swift: classify each block (Laya MLX / heuristic)
-      → JS: find smallest containing DOM element for flagged blocks
-      → JS: fade out + remove flagged elements
+    → PageScanSession            (cancellation, dedupe, bounded batches)
+    → drome-readability.js       (Readability scoring, text + XPath)
+    → AIContentFilter            (keyword guard + Laya classification)
+    → LayaMLXRuntime             (actor-isolated MLX inference on GPU)
+    → drome-bridge.js            (smallest container, reversible hide)
 ```
 
-## How the AI Filter Works
+See [`docs/laya-mlx-swift.md`](docs/laya-mlx-swift.md) for the model port, runtime requirements, and the fidelity-validation plan.
 
-Mozilla's Readability algorithm scores DOM elements by paragraph density and link ratio to find meaningful content (same algorithm Firefox Reader Mode uses). The filter then:
+## How the filter works
 
-1. Walks all text nodes, skipping scripts/styles/hidden elements
-2. For each text block ≥30 chars, records its text + XPath
-3. Runs two typed decisions per qualifying block with Laya MLX Swift on-device
-4. For `"remove": true` responses, uses a second JS pass to walk *up* the DOM from the text node, stopping at the first ancestor whose text content is more than 1.8× the flagged block — that's the smallest meaningful container
-5. All flagged containers are deduplicated (if a parent is already marked, skip its children), then faded out with CSS transition and removed
+1. Mozilla Readability-style scoring finds meaningful text blocks on the page.
+2. Qualifying blocks are queued in `PageScanSession` with a stable ID and content fingerprint.
+3. A keyword guard handles short blocks and provides a fallback if the model cannot load.
+4. Laya evaluates two typed questions per block — unsafe probability and safety category — in a single GPU batch.
+5. Flagged blocks are mapped back to the smallest DOM container that is at most 1.8× the block's text.
+6. Matching containers are deduplicated, faded out, and can be restored by toggling **Hide Unsafe Content** without reloading the page.
 
-This means an offensive paragraph inside an otherwise-fine article won't take the whole article down — just the paragraph's card/div wrapper.
+## Branch history
+
+The repository keeps both AI implementations so the evolution is visible.
+
+| Ref | What it is |
+| --- | --- |
+| `main` | Current implementation. Laya 421M decision model running natively on MLX Swift. |
+| `apple-foundation-models` | Archived first implementation using Apple Foundation Models (iOS 26), with a keyword fallback. Also tagged `v0.1.0-apple-foundation-models`. |
+| `feature/laya-mlx-backend` | Earlier MLX backend integration point, retained for comparison. |
+| `claude/app-perf-gemma-eval-9oiqig` | Archived research branch exploring batching and Gemma/LiteRT evaluation. |
+
+The Apple Foundation Models work is not dead code — it is the baseline this project is measured against.
+
+## Build from source
+
+```bash
+git clone https://github.com/ss-pratapIIITB/Drome.git
+cd Drome
+xcodegen generate          # project.yml is the source of truth
+open Drome.xcodeproj
+```
+
+In Xcode, select the `Drome` target, set your development team and a unique bundle identifier, then run on a device. If you are using a free Apple ID, switch **Code Signing Entitlements** from `Drome/Drome.entitlements` to `Drome/Drome.Sideload.entitlements`; the increased-memory entitlement is not available to personal teams. See [`docs/install.md`](docs/install.md).
+
+To produce an unsigned IPA:
+
+```bash
+./scripts/build-ipa.sh
+```
+
+## Testing
+
+```bash
+./scripts/run-tests.sh
+```
+
+The suite covers page-scan cancellation and deduplication, JavaScript injection contracts, and the keyword/fallback path of the content filter. CI builds every pull request and runs the tests on an iOS simulator.
+
+## Performance
+
+- 421M parameters, FP16, 842,609,225-byte checkpoint.
+- Model load and inference run on the Apple GPU through MLX.
+- Latency, peak memory, and thermal behavior vary by device; measure on your target hardware before making claims. `docs/laya-mlx-swift.md` lists the metrics to capture.
+
+## Privacy and limitations
+
+- After the first model download, page text is classified on-device and is never uploaded by the app.
+- The model is a research artifact, not a clinical or child-safety guarantee. False positives and false negatives are expected.
+- The filter is off by default until enabled in Settings → Privacy.
+- Only visible, qualifying text blocks are scanned; images, video, and canvas content are out of scope.
+- The Laya MLX checkpoint is downloaded from Hugging Face at runtime and its metadata lists Apache-2.0. Review the model card before redistribution.
+
+## License
+
+Apache-2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+
+Drome builds on [MLX Swift](https://github.com/ml-explore/mlx-swift), [swift-transformers](https://github.com/huggingface/swift-transformers), Mozilla's Readability algorithm, and the [Laya](https://huggingface.co/aac6fef/laya-mlx) model.

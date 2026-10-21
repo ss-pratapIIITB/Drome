@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="640" viewBox="0 0 1200 640" role="img" aria-labelledby="title desc">
+  <title id="title">Drome architecture</title>
+  <desc id="desc">Drome runs a full iOS browser in SwiftUI and WKWebView, extracts readable text blocks with JavaScript, and classifies them locally with a 421M-parameter Laya model running on MLX Swift.</desc>
+
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B1017"/>
+      <stop offset="1" stop-color="#0E1621"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#5EEAD4"/>
+      <stop offset="1" stop-color="#818CF8"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="18" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <style>
+      .kicker { font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 2.4px; fill: #5EEAD4; }
+      .title { font: 700 40px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #F8FAFC; }
+      .subtitle { font: 400 17px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #94A3B8; }
+      .card-label { font: 600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 1.8px; fill: #64748B; }
+      .card-title { font: 600 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #F1F5F9; }
+      .item { font: 400 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #CBD5E1; }
+      .item-strong { font: 600 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #5EEAD4; }
+      .footer { font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #94A3B8; letter-spacing: 0.4px; }
+      .mono { font: 500 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #64748B; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="640" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="1199" height="639" rx="24" fill="none" stroke="#1E293B"/>
+
+  <circle cx="1040" cy="96" r="150" fill="#14B8A6" opacity="0.10" filter="url(#glow)"/>
+  <circle cx="1120" cy="420" r="120" fill="#6366F1" opacity="0.10" filter="url(#glow)"/>
+
+  <text x="64" y="66" class="kicker">DROME</text>
+  <text x="64" y="116" class="title">A browser with a local AI filter</text>
+  <text x="64" y="148" class="subtitle">WKWebView shell, DOM-aware extraction, and a 421M-parameter model on MLX Swift.</text>
+
+  <g>
+    <rect x="64" y="196" width="336" height="300" rx="18" fill="#0F172A" stroke="#1E293B"/>
+    <text x="88" y="230" class="card-label">01 / APP</text>
+    <text x="88" y="260" class="card-title">SwiftUI shell</text>
+    <text x="88" y="294" class="item">BrowserView · tabs · toolbar</text>
+    <text x="88" y="320" class="item">Tab grid with live snapshots</text>
+    <text x="88" y="346" class="item">Developer tools panel</text>
+    <text x="88" y="372" class="item">Settings and blockers</text>
+    <text x="88" y="414" class="item-strong">BrowserViewModel</text>
+    <text x="88" y="438" class="item">owns tabs, history, settings</text>
+    <text x="88" y="472" class="mono">SwiftUI · iOS 18+</text>
+  </g>
+
+  <g>
+    <rect x="432" y="196" width="336" height="300" rx="18" fill="#0F172A" stroke="#1E293B"/>
+    <text x="456" y="230" class="card-label">02 / WEB</text>
+    <text x="456" y="260" class="card-title">WKWebView + JS bridge</text>
+    <text x="456" y="294" class="item">Console and network interception</text>
+    <text x="456" y="320" class="item">Readability-style text extraction</text>
+    <text x="456" y="346" class="item">XPath + fingerprint per block</text>
+    <text x="456" y="372" class="item">Smallest-container removal</text>
+    <text x="456" y="414" class="item-strong">WebViewCoordinator</text>
+    <text x="456" y="438" class="item">navigation, messages, downloads</text>
+    <text x="456" y="472" class="mono">WebKit · JavaScript</text>
+  </g>
+
+  <g>
+    <rect x="800" y="196" width="336" height="300" rx="18" fill="#0F172A" stroke="#1E293B"/>
+    <text x="824" y="230" class="card-label">03 / AI</text>
+    <text x="824" y="260" class="card-title">On-device inference</text>
+    <text x="824" y="294" class="item">PageScanSession cancels stale work</text>
+    <text x="824" y="320" class="item">Deduplicates by block fingerprint</text>
+    <text x="824" y="346" class="item">Laya 421M · FP16 · 843 MB</text>
+    <text x="824" y="372" class="item">ModernBERT encoder + decision head</text>
+    <text x="824" y="414" class="item-strong">LayaMLXRuntime</text>
+    <text x="824" y="438" class="item">actor-isolated, GPU batches</text>
+    <text x="824" y="472" class="mono">MLX Swift · Apple GPU</text>
+  </g>
+
+  <g stroke="url(#accent)" stroke-width="2" fill="none" opacity="0.8">
+    <path d="M400 346 H432"/>
+    <path d="M768 346 H800"/>
+  </g>
+  <g fill="#5EEAD4">
+    <path d="M428 341 L436 346 L428 351 Z"/>
+    <path d="M796 341 L804 346 L796 351 Z"/>
+  </g>
+
+  <g>
+    <rect x="64" y="530" width="1072" height="56" rx="14" fill="#0B1220" stroke="#1E293B"/>
+    <circle cx="92" cy="558" r="6" fill="#5EEAD4"/>
+    <text x="110" y="563" class="footer">Page text never leaves the device</text>
+    <text x="520" y="563" class="footer">No cloud inference</text>
+    <text x="760" y="563" class="footer">No Python process</text>
+    <text x="980" y="563" class="footer">No API keys</text>
+  </g>
+</svg>

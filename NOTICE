@@ -1,0 +1,9 @@
+Drome
+Copyright 2026 Surendra Pratap Singh
+
+This product includes software developed by the MLX and Swift Transformers
+projects, and a model checkpoint published on Hugging Face.
+
+- MLX Swift: https://github.com/ml-explore/mlx-swift (MIT)
+- swift-transformers: https://github.com/huggingface/swift-transformers (Apache-2.0)
+- Laya MLX checkpoint: https://huggingface.co/aac6fef/laya-mlx (Apache-2.0)

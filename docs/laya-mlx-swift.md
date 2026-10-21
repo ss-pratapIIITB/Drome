@@ -1,5 +1,10 @@
 # Laya MLX Swift in Drome
 
+> This document describes the implementation on `main`. The earlier Apple
+> Foundation Models implementation is archived on the
+> `apple-foundation-models` branch and tagged
+> `v0.1.0-apple-foundation-models`.
+
 Drome runs the Laya 421M typed-decision model directly on the iPhone with MLX
 Swift. There is no Python process, local server, Apple Intelligence dependency,
 or cloud inference API.
