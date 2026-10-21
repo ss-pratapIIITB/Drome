@@ -17,10 +17,11 @@ or cloud inference API.
 3. The native Swift port builds Laya's ModernBERT encoder and decision head,
    then loads the published safetensors checkpoint without changing its tensor
    layout.
-4. Drome asks two typed questions for every qualifying text block: an unsafe
-   probability and a safety category.
-5. MLX evaluates both questions together on the Apple GPU. The existing
-   keyword classifier remains a hard override and load-failure fallback.
+4. Drome asks the unsafe question for a batch of qualifying text blocks in one
+   MLX call. The safety category is requested only for blocks that cross the
+   unsafe threshold.
+5. MLX evaluates each batch on the Apple GPU. The existing keyword classifier
+   remains a hard override and load-failure fallback.
 
 After the first download, inference is fully local and page text never leaves
 the device.

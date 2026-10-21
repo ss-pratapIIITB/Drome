@@ -4,6 +4,12 @@ import SwiftUI
 struct DromeApp: App {
     @StateObject private var browserVM = BrowserViewModel()
 
+    init() {
+        Task(priority: .utility) {
+            _ = try? await ContentBlocker.shared.ruleList()
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

@@ -12,6 +12,7 @@
 		21EDC10B33C0ADA321A028FD /* Hub in Frameworks */ = {isa = PBXBuildFile; productRef = 69C885BB300C4D203B3BAAAF /* Hub */; };
 		34E9467998D9006FE2B230E1 /* JavaScriptInjectorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B26186211FE859B965A28F7D /* JavaScriptInjectorTests.swift */; };
 		388689C77C43EB25ED3DCF02 /* MLXNN in Frameworks */ = {isa = PBXBuildFile; productRef = 90F38493CCDD9C8D96D39DA0 /* MLXNN */; };
+		442E498DF0B1C62E75D8C6B5 /* drome-extract.js in Resources */ = {isa = PBXBuildFile; fileRef = AA2C008FAE79260CF4748548 /* drome-extract.js */; };
 		467CA9A47FD1ADF536003A5F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1F01451951BD613D5029BD1 /* PrivacyInfo.xcprivacy */; };
 		4B60DA7CCC425C443D91628B /* DromeWebView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D387D5A823F9AA0D97293F72 /* DromeWebView.swift */; };
 		4B8FE4D52DED4785E15203BD /* PageScanSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37307843DE4DFA02C5060049 /* PageScanSession.swift */; };
@@ -21,7 +22,6 @@
 		58E826DE61BB0C93EA9143AD /* ContentBlocker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 687128D3FBA2AA8E1D65E866 /* ContentBlocker.swift */; };
 		6575D35A5BEE9F6EF9484064 /* drome-bridge.js in Resources */ = {isa = PBXBuildFile; fileRef = DA1D7292A91FECA49F46C1EC /* drome-bridge.js */; };
 		69CE11B10C3FBD89F6A584A7 /* ConsoleEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22708312843519B9DDC1094F /* ConsoleEntry.swift */; };
-		6E890DF8A5BE3B821A5741F9 /* drome-readability.js in Resources */ = {isa = PBXBuildFile; fileRef = C31A5C6310CDE92E58382D3B /* drome-readability.js */; };
 		7018037059F1CD4B5C3EF985 /* BrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E88DBD9E4031F241BE5E3E0 /* BrowserViewModel.swift */; };
 		71247E4DAE0891970EE905DD /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65223219DD91D8ABE455B6AD /* SettingsView.swift */; };
 		7C6F72A00621C2B528D55112 /* AIContentFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6ACEFFDDB5BE1B7C27F5CD /* AIContentFilterTests.swift */; };
@@ -75,12 +75,12 @@
 		97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserTab.swift; sourceTree = "<group>"; };
 		A1F01451951BD613D5029BD1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A8F834EA9E316486106C646E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AA2C008FAE79260CF4748548 /* drome-extract.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "drome-extract.js"; sourceTree = "<group>"; };
 		AAE29DD84655FF4E627A2C1C /* WebViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewCoordinator.swift; sourceTree = "<group>"; };
 		B26186211FE859B965A28F7D /* JavaScriptInjectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptInjectorTests.swift; sourceTree = "<group>"; };
 		B3A8F595022539BC48BE73AD /* DeveloperToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolsView.swift; sourceTree = "<group>"; };
 		B907A1E329DE5029DA3EE5CE /* PageScanSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PageScanSessionTests.swift; sourceTree = "<group>"; };
 		BCFC7461A315578535A3164F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		C31A5C6310CDE92E58382D3B /* drome-readability.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "drome-readability.js"; sourceTree = "<group>"; };
 		C80B8A0600D72899A0373A68 /* Drome.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Drome.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D387D5A823F9AA0D97293F72 /* DromeWebView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DromeWebView.swift; sourceTree = "<group>"; };
 		DA1D7292A91FECA49F46C1EC /* drome-bridge.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "drome-bridge.js"; sourceTree = "<group>"; };
@@ -124,7 +124,7 @@
 			isa = PBXGroup;
 			children = (
 				DA1D7292A91FECA49F46C1EC /* drome-bridge.js */,
-				C31A5C6310CDE92E58382D3B /* drome-readability.js */,
+				AA2C008FAE79260CF4748548 /* drome-extract.js */,
 				5C328FE99767FC874ACE1E59 /* JavaScriptInjector.swift */,
 				72634340D62857CCCF84CD52 /* JavaScriptStrings.swift */,
 			);
@@ -307,7 +307,7 @@
 			files = (
 				467CA9A47FD1ADF536003A5F /* PrivacyInfo.xcprivacy in Resources */,
 				6575D35A5BEE9F6EF9484064 /* drome-bridge.js in Resources */,
-				6E890DF8A5BE3B821A5741F9 /* drome-readability.js in Resources */,
+				442E498DF0B1C62E75D8C6B5 /* drome-extract.js in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

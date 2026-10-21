@@ -2,11 +2,21 @@ import SwiftUI
 
 struct AddressBarView: View {
     @EnvironmentObject var browserVM: BrowserViewModel
+
+    var body: some View {
+        if let tab = browserVM.currentTab {
+            AddressBarContent(tab: tab)
+                .id(tab.id)
+        }
+    }
+}
+
+private struct AddressBarContent: View {
+    @EnvironmentObject var browserVM: BrowserViewModel
+    @ObservedObject var tab: BrowserTab
+
     @State private var isEditing = false
     @State private var inputText = ""
-    @State private var showMenu = false
-
-    var tab: BrowserTab? { browserVM.currentTab }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -16,7 +26,7 @@ struct AddressBarView: View {
                 addressField
                     .frame(maxWidth: .infinity)
 
-                if tab?.isLoading == true {
+                if tab.isLoading {
                     Button {
                         browserVM.stopLoading()
                     } label: {
@@ -43,7 +53,7 @@ struct AddressBarView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
 
-            if let tab, tab.isLoading {
+            if tab.isLoading {
                 GeometryReader { geo in
                     Rectangle()
                         .fill(Color.accentColor)
@@ -58,8 +68,8 @@ struct AddressBarView: View {
     }
 
     var securityIndicator: some View {
-        let isSecure = tab?.url?.scheme == "https"
-        let isLocal = tab?.url?.scheme == "file" || tab?.url?.scheme == "about"
+        let isSecure = tab.url?.scheme == "https"
+        let isLocal = tab.url?.scheme == "file" || tab.url?.scheme == "about"
         return Image(systemName: isLocal ? "doc" : (isSecure ? "lock.fill" : "lock.open"))
             .font(.system(size: 12))
             .foregroundStyle(isSecure ? .green : (isLocal ? .secondary : .orange))
@@ -81,10 +91,10 @@ struct AddressBarView: View {
                     }
             } else {
                 Button {
-                    inputText = tab?.displayURL ?? ""
+                    inputText = tab.displayURL
                     isEditing = true
                 } label: {
-                    Text(tab?.displayTitle ?? "New Tab")
+                    Text(tab.displayTitle)
                         .font(.system(size: 15))
                         .lineLimit(1)
                         .foregroundStyle(.primary)
@@ -99,7 +109,7 @@ struct AddressBarView: View {
 
     var shareButton: some View {
         Group {
-            if let url = tab?.url {
+            if let url = tab.url {
                 ShareLink(item: url) {
                     Image(systemName: "square.and.arrow.up")
                         .font(.system(size: 14, weight: .semibold))

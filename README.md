@@ -16,7 +16,7 @@ Drome pairs a real WKWebView browser — tabs, developer tools, blockers, downlo
 
 - **Native MLX model port** — ModernBERT encoder, two-layer decision transformer, marker-token scoring head, prompt construction, and calibrated temperatures implemented in Swift.
 - **On-device by construction** — the 843 MB FP16 checkpoint downloads once; inference is local and page text never leaves the phone.
-- **DOM-aware removal** — finds the smallest container around flagged text, so one bad paragraph does not take down the whole article.
+- **DOM-aware removal** — extracts leaf text blocks, so one bad paragraph does not take down the whole article.
 - **Cancellation-aware scanning** — queued work is dropped and late results are rejected when the page changes or the tab loses focus.
 - **Incremental rescans** — mutation observers pick up expanded or dynamically loaded content without reclassifying unchanged blocks.
 - **A real browser around it** — multi-tab browsing, snapshots, ad/tracker blocking, website blocking, dark mode, custom user agents, downloads, and a resizable developer-tools panel.
@@ -30,6 +30,8 @@ The interesting engineering is not the prompt. It is the memory budget, the tens
 ## Demo
 
 A 90-second recording plan — including the reversible hide, the Laya playground, and the airplane-mode proof — is in [`docs/demo.md`](docs/demo.md). The same document lists the screenshots and GIF the repository should carry.
+
+Performance findings, the fast-path changes, and remaining risks are in [`docs/performance.md`](docs/performance.md).
 
 ## Install
 
@@ -61,22 +63,22 @@ DromeApp
 AI pipeline (per visible page):
   WebViewCoordinator.didFinish
     → PageScanSession            (cancellation, dedupe, bounded batches)
-    → drome-readability.js       (Readability scoring, text + XPath)
-    → AIContentFilter            (keyword guard + Laya classification)
-    → LayaMLXRuntime             (actor-isolated MLX inference on GPU)
-    → drome-bridge.js            (smallest container, reversible hide)
+    → drome-extract.js           (visible leaf blocks, XPath, fingerprint)
+    → AIContentFilter            (keyword guard + batched Laya classification)
+    → LayaMLXRuntime             (unsafe pass, category only for flagged blocks)
+    → drome-bridge.js            (batched labels, reversible hide)
 ```
 
 See [`docs/laya-mlx-swift.md`](docs/laya-mlx-swift.md) for the model port, runtime requirements, and the fidelity-validation plan.
 
 ## How the filter works
 
-1. Mozilla Readability-style scoring finds meaningful text blocks on the page.
+1. `drome-extract.js` walks visible block elements, keeps leaf text blocks, drops navigation/footer/code/high-link-density noise, and deduplicates repeated text.
 2. Qualifying blocks are queued in `PageScanSession` with a stable ID and content fingerprint.
 3. A keyword guard handles short blocks and provides a fallback if the model cannot load.
-4. Laya evaluates two typed questions per block — unsafe probability and safety category — in a single GPU batch.
-5. Flagged blocks are mapped back to the smallest DOM container that is at most 1.8× the block's text.
-6. Matching containers are deduplicated, faded out, and can be restored by toggling **Hide Unsafe Content** without reloading the page.
+4. Laya evaluates a batch of blocks with the unsafe question; the category question runs only for blocks that cross the threshold.
+5. Labels are applied to the extracted block elements in one DOM pass, so hiding is reversible and never reloads the page.
+6. Toggling **Hide Unsafe Content** restores or hides the same elements without rescanning.
 
 ## Branch history
 
@@ -126,7 +128,7 @@ The suite covers page-scan cancellation and deduplication, JavaScript injection 
 
 - After the first model download, page text is classified on-device and is never uploaded by the app.
 - The model is a research artifact, not a clinical or child-safety guarantee. False positives and false negatives are expected.
-- The filter is off by default until enabled in Settings → Privacy.
+- The filter is on by default and can be disabled in Settings → Privacy.
 - Only visible, qualifying text blocks are scanned; images, video, and canvas content are out of scope.
 - The Laya MLX checkpoint is downloaded from Hugging Face at runtime and its metadata lists Apache-2.0. Review the model card before redistribution.
 
@@ -134,4 +136,4 @@ The suite covers page-scan cancellation and deduplication, JavaScript injection 
 
 Apache-2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
 
-Drome builds on [MLX Swift](https://github.com/ml-explore/mlx-swift), [swift-transformers](https://github.com/huggingface/swift-transformers), Mozilla's Readability algorithm, and the [Laya](https://huggingface.co/aac6fef/laya-mlx) model.
+Drome builds on [MLX Swift](https://github.com/ml-explore/mlx-swift), [swift-transformers](https://github.com/huggingface/swift-transformers), and the [Laya](https://huggingface.co/aac6fef/laya-mlx) model.

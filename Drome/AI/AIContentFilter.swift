@@ -25,48 +25,76 @@ final class AIContentFilter {
     }
 
     func classify(text rawText: String, useLaya: Bool) async -> ContentClassificationResult? {
-        let cleanedText = cleanText(rawText)
-        guard cleanedText.count >= minBlockLength else { return nil }
+        let results = await classifyBatch(texts: [rawText], useLaya: useLaya)
+        guard let first = results.first else { return nil }
+        return first
+    }
 
-        let (keywordSafe, keywordReason) = classifyWithHeuristics(text: cleanedText)
-        if !keywordSafe {
-            return ContentClassificationResult(
-                isSafe: false,
-                reason: keywordReason,
-                method: "kw",
-                confidence: nil,
-                latencyMs: nil
-            )
+    /// Classifies a batch in one model call. Results keep the input order and are
+    /// `nil` for blocks shorter than `minBlockLength`.
+    func classifyBatch(texts rawTexts: [String], useLaya: Bool) async -> [ContentClassificationResult?] {
+        var cleanedTexts = [String?](repeating: nil, count: rawTexts.count)
+        var results = [ContentClassificationResult?](repeating: nil, count: rawTexts.count)
+        var pendingIndices: [Int] = []
+        var pendingTexts: [String] = []
+
+        for (index, rawText) in rawTexts.enumerated() {
+            let cleanedText = cleanText(rawText)
+            guard cleanedText.count >= minBlockLength else { continue }
+            cleanedTexts[index] = cleanedText
+
+            let (keywordSafe, keywordReason) = classifyWithHeuristics(text: cleanedText)
+            if !keywordSafe {
+                results[index] = ContentClassificationResult(
+                    isSafe: false,
+                    reason: keywordReason,
+                    method: "kw",
+                    confidence: nil,
+                    latencyMs: nil
+                )
+            } else if useLaya, wordCount(cleanedText) > 3 {
+                pendingIndices.append(index)
+                pendingTexts.append(String(cleanedText.prefix(maxBlockChars)))
+            } else {
+                results[index] = ContentClassificationResult(
+                    isSafe: true,
+                    reason: keywordReason,
+                    method: "kw",
+                    confidence: nil,
+                    latencyMs: nil
+                )
+            }
         }
 
-        guard wordCount(cleanedText) > 3, useLaya else {
-            return ContentClassificationResult(
-                isSafe: true,
-                reason: keywordReason,
-                method: "kw",
-                confidence: nil,
-                latencyMs: nil
-            )
-        }
+        guard !pendingTexts.isEmpty else { return results }
 
         do {
-            let response = try await layaRuntime.classify(String(cleanedText.prefix(maxBlockChars)))
-            return ContentClassificationResult(
-                isSafe: response.safe,
-                reason: response.reason,
-                method: "laya",
-                confidence: response.confidence,
-                latencyMs: response.latencyMs
-            )
+            let responses = try await layaRuntime.classifyBatch(pendingTexts)
+            for (offset, index) in pendingIndices.enumerated() where offset < responses.count {
+                let response = responses[offset]
+                results[index] = ContentClassificationResult(
+                    isSafe: response.safe,
+                    reason: response.reason,
+                    method: "laya",
+                    confidence: response.confidence,
+                    latencyMs: response.latencyMs
+                )
+            }
         } catch {
-            return ContentClassificationResult(
-                isSafe: keywordSafe,
-                reason: keywordReason,
-                method: "kw-fallback",
-                confidence: nil,
-                latencyMs: nil
-            )
+            for index in pendingIndices {
+                guard let cleanedText = cleanedTexts[index] else { continue }
+                let (keywordSafe, keywordReason) = classifyWithHeuristics(text: cleanedText)
+                results[index] = ContentClassificationResult(
+                    isSafe: keywordSafe,
+                    reason: keywordReason,
+                    method: "kw-fallback",
+                    confidence: nil,
+                    latencyMs: nil
+                )
+            }
         }
+
+        return results
     }
 
     // MARK: - Text cleaning
@@ -85,37 +113,38 @@ final class AIContentFilter {
 
     // MARK: - Keyword heuristics (short blocks and Laya fallback)
 
+    private static let highRiskKeywords: [(String, String)] = [
+        ("killed", "Violence/death"), ("murder", "Violence"),
+        ("shooting", "Violence"), ("bombing", "Violence"),
+        ("massacre", "Violence"), ("suicide", "Self-harm"),
+        ("overdose", "Self-harm"), ("terrorist", "Terrorism"),
+        ("horrifying", "Fear-inducing"), ("terrifying", "Fear-inducing"),
+        ("devastating", "Alarming"), ("death toll", "Disaster"),
+        ("nude", "Adult content"), ("naked", "Adult content"),
+        ("nsfw", "Adult content"), ("porn", "Adult content"),
+        ("sex tape", "Adult content"), ("leaked photos", "Privacy violation"),
+        ("explicit", "Adult content"), ("onlyfans", "Adult content"),
+        ("dead body", "Violence/death"), ("bodies found", "Violence/death"),
+    ]
+
+    private static let mediumRiskKeywords: [(String, String)] = [
+        ("breaking news", "Breaking news"), ("crisis", "Crisis"),
+        ("disaster", "Disaster"), ("pandemic", "Health crisis"),
+        ("outbreak", "Health crisis"), ("recession", "Financial stress"),
+        ("inflation", "Financial stress"), ("layoffs", "Job insecurity"),
+        ("scandal", "Scandal"), ("outrage", "Outrage bait"),
+        ("shocking", "Alarming"), ("act now", "Urgency pressure"),
+        ("war", "Conflict"), ("arrested", "Crime"),
+        ("sexual", "Adult content"), ("strip", "Adult content"),
+    ]
+
     private func classifyWithHeuristics(text: String) -> (Bool, String) {
         let lower = text.lowercased()
 
-        let highRisk: [(String, String)] = [
-            ("killed", "Violence/death"), ("murder", "Violence"),
-            ("shooting", "Violence"), ("bombing", "Violence"),
-            ("massacre", "Violence"), ("suicide", "Self-harm"),
-            ("overdose", "Self-harm"), ("terrorist", "Terrorism"),
-            ("horrifying", "Fear-inducing"), ("terrifying", "Fear-inducing"),
-            ("devastating", "Alarming"), ("death toll", "Disaster"),
-            ("nude", "Adult content"), ("naked", "Adult content"),
-            ("nsfw", "Adult content"), ("porn", "Adult content"),
-            ("sex tape", "Adult content"), ("leaked photos", "Privacy violation"),
-            ("explicit", "Adult content"), ("onlyfans", "Adult content"),
-            ("dead body", "Violence/death"), ("bodies found", "Violence/death"),
-        ]
-        let mediumRisk: [(String, String)] = [
-            ("breaking news", "Breaking news"), ("crisis", "Crisis"),
-            ("disaster", "Disaster"), ("pandemic", "Health crisis"),
-            ("outbreak", "Health crisis"), ("recession", "Financial stress"),
-            ("inflation", "Financial stress"), ("layoffs", "Job insecurity"),
-            ("scandal", "Scandal"), ("outrage", "Outrage bait"),
-            ("shocking", "Alarming"), ("act now", "Urgency pressure"),
-            ("war", "Conflict"), ("arrested", "Crime"),
-            ("sexual", "Adult content"), ("strip", "Adult content"),
-        ]
-
         var score = 0
         var reasons: [String] = []
-        for (p, r) in highRisk   { if lower.contains(p) { score += 2; reasons.append(r) } }
-        for (p, r) in mediumRisk { if lower.contains(p) { score += 1; reasons.append(r) } }
+        for (p, r) in Self.highRiskKeywords   { if lower.contains(p) { score += 2; reasons.append(r) } }
+        for (p, r) in Self.mediumRiskKeywords { if lower.contains(p) { score += 1; reasons.append(r) } }
 
         if score >= (text.count > 100 ? 2 : 3) {
             return (false, reasons.prefix(2).joined(separator: " · "))

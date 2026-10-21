@@ -4,16 +4,51 @@ actor ContentBlocker {
     static let shared = ContentBlocker()
 
     private var cachedRuleList: WKContentRuleList?
+    private var loadingTask: Task<WKContentRuleList, Error>?
 
     func ruleList() async throws -> WKContentRuleList {
-        if let cached = cachedRuleList { return cached }
-        let rules = try await compileRules()
-        cachedRuleList = rules
-        return rules
+        if let cachedRuleList { return cachedRuleList }
+        if let loadingTask { return try await loadingTask.value }
+
+        let task = Task { try await self.loadRuleList() }
+        loadingTask = task
+
+        do {
+            let ruleList = try await task.value
+            cachedRuleList = ruleList
+            loadingTask = nil
+            return ruleList
+        } catch {
+            loadingTask = nil
+            throw error
+        }
     }
 
     func invalidateCache() {
         cachedRuleList = nil
+        loadingTask?.cancel()
+        loadingTask = nil
+    }
+
+    private func loadRuleList() async throws -> WKContentRuleList {
+        if let cached = try? await lookupRuleList() {
+            return cached
+        }
+        return try await compileRules()
+    }
+
+    private func lookupRuleList() async throws -> WKContentRuleList? {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<WKContentRuleList?, Error>) in
+            WKContentRuleListStore.default().lookUpContentRuleList(
+                forIdentifier: "DromeAdBlock"
+            ) { ruleList, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: ruleList)
+                }
+            }
+        }
     }
 }
 

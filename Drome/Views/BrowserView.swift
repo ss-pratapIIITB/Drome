@@ -13,8 +13,7 @@ struct BrowserView: View {
 
             ZStack {
                 if let tab = browserVM.currentTab {
-                    DromeWebView(tab: tab, devToolsVM: devToolsVM)
-                        .id(tab.id)
+                    BrowserTabContent(tab: tab, devToolsVM: devToolsVM)
                 } else {
                     NewTabView()
                 }
@@ -36,6 +35,20 @@ struct BrowserView: View {
 
             BottomToolbarView()
                 .background(.bar)
+        }
+    }
+}
+
+private struct BrowserTabContent: View {
+    @ObservedObject var tab: BrowserTab
+    let devToolsVM: DeveloperToolsViewModel
+
+    var body: some View {
+        if tab.url != nil {
+            DromeWebView(tab: tab, devToolsVM: devToolsVM)
+                .id(tab.id)
+        } else {
+            NewTabView()
         }
     }
 }
@@ -77,11 +90,22 @@ struct BottomToolbarView: View {
     @EnvironmentObject var browserVM: BrowserViewModel
 
     var body: some View {
+        if let tab = browserVM.currentTab {
+            BottomToolbarContent(tab: tab)
+        }
+    }
+}
+
+private struct BottomToolbarContent: View {
+    @EnvironmentObject var browserVM: BrowserViewModel
+    @ObservedObject var tab: BrowserTab
+
+    var body: some View {
         HStack(spacing: 0) {
-            toolbarButton("chevron.left", enabled: browserVM.currentTab?.canGoBack == true) {
+            toolbarButton("chevron.left", enabled: tab.canGoBack) {
                 browserVM.goBack()
             }
-            toolbarButton("chevron.right", enabled: browserVM.currentTab?.canGoForward == true) {
+            toolbarButton("chevron.right", enabled: tab.canGoForward) {
                 browserVM.goForward()
             }
             Spacer()
@@ -103,10 +127,10 @@ struct BottomToolbarView: View {
     }
 
     private func toggleReadingMode() {
-        browserVM.currentTab?.webView?.evaluateJavaScript(JavaScriptInjector.toggleReadingModeJS()) { result, _ in
+        tab.webView?.evaluateJavaScript(JavaScriptInjector.toggleReadingModeJS()) { result, _ in
             if let res = result as? String {
                 Task { @MainActor in
-                    self.browserVM.readingModeActive = (res == "on")
+                    browserVM.readingModeActive = (res == "on")
                 }
             }
         }

@@ -37,7 +37,7 @@ targets:
           - "**/*.js"
       - path: Drome/JavaScript/drome-bridge.js
         buildPhase: resources
-      - path: Drome/JavaScript/drome-readability.js
+      - path: Drome/JavaScript/drome-extract.js
         buildPhase: resources
       - path: Drome/PrivacyInfo.xcprivacy
         buildPhase: resources

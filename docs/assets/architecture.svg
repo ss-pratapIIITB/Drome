@@ -59,7 +59,7 @@
     <text x="456" y="230" class="card-label">02 / WEB</text>
     <text x="456" y="260" class="card-title">WKWebView + JS bridge</text>
     <text x="456" y="294" class="item">Console and network interception</text>
-    <text x="456" y="320" class="item">Readability-style text extraction</text>
+    <text x="456" y="320" class="item">Leaf-block DOM extraction</text>
     <text x="456" y="346" class="item">XPath + fingerprint per block</text>
     <text x="456" y="372" class="item">Smallest-container removal</text>
     <text x="456" y="414" class="item-strong">WebViewCoordinator</text>

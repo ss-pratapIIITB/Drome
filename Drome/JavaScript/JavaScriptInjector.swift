@@ -1,3 +1,4 @@
+import Foundation
 import WebKit
 
 enum JavaScriptInjector {
@@ -25,6 +26,7 @@ enum JavaScriptInjector {
         """
         let js = """
         (function() {
+            if (document.getElementById('__drome_dark')) return;
             const style = document.createElement('style');
             style.id = '__drome_dark';
             style.textContent = `\(css)`;
@@ -83,73 +85,12 @@ enum JavaScriptInjector {
     static func extractContentBlocksJS() -> String {
         """
         (function() {
-            const blocks = new Map();
-            const minLength = 25;
-            const skipTags = new Set(['SCRIPT','STYLE','NOSCRIPT','CODE','PRE','SVG','MATH']);
-
-            function normalize(text) {
-                return text.replace(/\\s+/g, ' ').trim();
+            try {
+                if (!window.__dromeExtract) return '[]';
+                return JSON.stringify(window.__dromeExtract.collect(document.body));
+            } catch (e) {
+                return '[]';
             }
-
-            function fingerprint(text) {
-                let hash = 5381;
-                for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
-                return (hash >>> 0).toString(36) + '-' + text.length;
-            }
-
-            function isVisible(el) {
-                if (!el || !el.isConnected || el.hidden || el.getAttribute('aria-hidden') === 'true') return false;
-                const style = window.getComputedStyle(el);
-                return style.display !== 'none' && style.visibility !== 'hidden'
-                    && style.opacity !== '0' && el.getClientRects().length > 0;
-            }
-
-            function getStableXPath(el) {
-                if (!el) return '';
-                let id = el.getAttribute('data-drome-block-id');
-                if (!id) {
-                    window.__dromeBlockSequence = (window.__dromeBlockSequence || 0) + 1;
-                    id = 'block-' + window.__dromeBlockSequence;
-                    el.setAttribute('data-drome-block-id', id);
-                }
-                return "//*[@data-drome-block-id='" + id + "']";
-            }
-
-            function addTextNode(node) {
-                const el = node.parentElement;
-                if (!el || !isVisible(el)) return;
-                const text = normalize(node.textContent || '');
-                if (text.length < minLength) return;
-                const xpath = getStableXPath(el);
-                const id = el.getAttribute('data-drome-block-id');
-                const contentFingerprint = fingerprint(text);
-                if (el.hasAttribute('data-drome-safe')
-                    && el.getAttribute('data-drome-fingerprint') === contentFingerprint) return;
-                const candidate = {
-                    id: id,
-                    text: text.slice(0, 500),
-                    xpath: xpath,
-                    fingerprint: contentFingerprint
-                };
-                const previous = blocks.get(id);
-                if (!previous || candidate.text.length > previous.text.length) blocks.set(id, candidate);
-            }
-
-            function walk(node) {
-                if (!node) return;
-                if (node.nodeType === Node.ELEMENT_NODE) {
-                    if (skipTags.has(node.tagName)) return;
-                    if (!isVisible(node)) return;
-                }
-                if (node.nodeType === Node.TEXT_NODE) {
-                    addTextNode(node);
-                    return;
-                }
-                for (const child of node.childNodes) walk(child);
-            }
-
-            walk(document.body);
-            return JSON.stringify(Array.from(blocks.values()).slice(0, 200));
         })()
         """
     }
@@ -238,6 +179,46 @@ enum JavaScriptInjector {
         """
     }
 
+    struct LabelUpdate {
+        let xpath: String
+        let fingerprint: String
+        let isSafe: Bool
+        let reason: String
+        let hideUnsafe: Bool
+    }
+
+    /// Phase 2 (batched) — apply one model batch's labels in a single JS call.
+    static func updateLabelsJS(_ updates: [LabelUpdate]) -> String {
+        let payload = updates.map { update in
+            [
+                "xpath": update.xpath,
+                "fingerprint": update.fingerprint,
+                "safe": update.isSafe,
+                "reason": update.reason,
+                "hideUnsafe": update.hideUnsafe,
+            ] as [String: Any]
+        }
+        let json = (try? String(data: JSONSerialization.data(withJSONObject: payload), encoding: .utf8)) ?? "[]"
+        return """
+        (function() {
+            const updates = \(json);
+            updates.forEach(function(update) {
+                try {
+                    const res = document.evaluate(update.xpath, document, null,
+                        XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+                    const el = res.singleNodeValue;
+                    if (!el) return;
+                    el.setAttribute('data-drome-safe', update.safe ? '1' : '0');
+                    el.setAttribute('data-drome-label', update.safe ? '✓ Safe' : '⚠ Unsafe');
+                    el.setAttribute('data-drome-reason', update.reason);
+                    el.setAttribute('data-drome-fingerprint', update.fingerprint);
+                    el.classList[update.hideUnsafe && !update.safe ? 'add' : 'remove']('__drome_unsafe_hidden');
+                } catch(e) {}
+            });
+        })();
+        """
+    }
+
     static func labelElementJS(xpath: String, isSafe: Bool, reason: String) -> String {
         let safeVal = isSafe ? "1" : "0"
         let labelText = isSafe ? "✓ Safe" : "⚠ Unsafe"
@@ -296,70 +277,19 @@ enum JavaScriptInjector {
 
     /// Inject a MutationObserver that fires dromeMutation messages for newly added text nodes
     /// not yet labeled. Debouncing happens on the Swift side.
-    static func injectMutationObserverJS(minLength: Int = 25) -> String {
+    static func injectMutationObserverJS() -> String {
         """
         (function() {
             if (window.__dromeMutationObserver) return; // already running
+            if (!window.__dromeExtract) return;
 
-            const skipTags = new Set(['SCRIPT','STYLE','NOSCRIPT','CODE','PRE','SVG','MATH']);
             const pending = new Map();
             let flushTimer = null;
 
-            function normalize(text) {
-                return text.replace(/\\s+/g, ' ').trim();
-            }
-
-            function fingerprint(text) {
-                let hash = 5381;
-                for (let i = 0; i < text.length; i++) hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
-                return (hash >>> 0).toString(36) + '-' + text.length;
-            }
-
-            function isVisible(el) {
-                if (!el || !el.isConnected || el.hidden || el.getAttribute('aria-hidden') === 'true') return false;
-                const style = window.getComputedStyle(el);
-                return style.display !== 'none' && style.visibility !== 'hidden'
-                    && style.opacity !== '0' && el.getClientRects().length > 0;
-            }
-
-            function getStableXPath(el) {
-                if (!el) return '';
-                let id = el.getAttribute('data-drome-block-id');
-                if (!id) {
-                    window.__dromeBlockSequence = (window.__dromeBlockSequence || 0) + 1;
-                    id = 'block-' + window.__dromeBlockSequence;
-                    el.setAttribute('data-drome-block-id', id);
-                }
-                return "//*[@data-drome-block-id='" + id + "']";
-            }
-
-            function queueTextNode(node) {
-                const el = node.parentElement;
-                if (!el || !isVisible(el)) return;
-                const text = normalize(node.textContent || '');
-                if (text.length < \(minLength)) return;
-                const xpath = getStableXPath(el);
-                const id = el.getAttribute('data-drome-block-id');
-                const contentFingerprint = fingerprint(text);
-                if (el.hasAttribute('data-drome-safe')
-                    && el.getAttribute('data-drome-fingerprint') === contentFingerprint) return;
-                pending.set(id, {
-                    id: id,
-                    text: text.slice(0, 500),
-                    xpath: xpath,
-                    fingerprint: contentFingerprint
-                });
-            }
-
-            function scan(root) {
+            function queue(root) {
                 if (!root) return;
-                if (root.nodeType === Node.TEXT_NODE) {
-                    queueTextNode(root);
-                    return;
-                }
-                if (root.nodeType !== Node.ELEMENT_NODE || skipTags.has(root.tagName) || !isVisible(root)) return;
-                const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-                while (walker.nextNode()) queueTextNode(walker.currentNode);
+                const candidates = window.__dromeExtract.collect(root);
+                for (const candidate of candidates) pending.set(candidate.id, candidate);
             }
 
             function scheduleFlush() {
@@ -383,9 +313,16 @@ enum JavaScriptInjector {
             const observer = new MutationObserver(function(mutations) {
                 for (const mut of mutations) {
                     if (isOnlyDromeClassChange(mut)) continue;
-                    if (mut.type === 'characterData') scan(mut.target);
-                    else if (mut.type === 'attributes') scan(mut.target);
-                    else for (const node of mut.addedNodes) scan(node);
+                    if (mut.type === 'characterData') {
+                        queue(mut.target.parentElement);
+                    } else if (mut.type === 'attributes') {
+                        queue(mut.target);
+                    } else {
+                        for (const node of mut.addedNodes) {
+                            if (node.nodeType === Node.TEXT_NODE) queue(node.parentElement);
+                            else if (node.nodeType === Node.ELEMENT_NODE) queue(node);
+                        }
+                    }
                 }
                 if (pending.size) scheduleFlush();
             });

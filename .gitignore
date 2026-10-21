@@ -9,3 +9,5 @@ DerivedData/
 *.perspectivev3
 __pycache__/
 *.py[cod]
+
+eval/node_modules/

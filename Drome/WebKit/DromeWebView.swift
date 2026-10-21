@@ -64,13 +64,7 @@ struct DromeWebView: UIViewRepresentable {
             }
         }
 
-        // Dark mode injection
-        if browserVM.forceDarkMode {
-            webView.evaluateJavaScript(
-                "if (!document.getElementById('__drome_dark')) { \(JavaScriptInjector.makeBridgeScript().source) }",
-                completionHandler: nil
-            )
-        }
+        context.coordinator.applyDarkMode(browserVM.forceDarkMode, on: webView)
     }
 
     private func makeConfiguration(coordinator: WebViewCoordinator) -> WKWebViewConfiguration {
@@ -83,16 +77,17 @@ struct DromeWebView: UIViewRepresentable {
         ucc.add(coordinator, name: "dromeAIFilter")
         ucc.add(coordinator, name: "dromeMutation")
 
-        // Inject bridge at document start
+        // Inject bridge at document start. Main-frame only keeps iframe-heavy
+        // pages from paying the interception cost.
         ucc.addUserScript(WKUserScript(
             source: loadJS("drome-bridge"),
             injectionTime: .atDocumentStart,
-            forMainFrameOnly: false
+            forMainFrameOnly: true
         ))
 
-        // Inject readability at document end
+        // Shared extraction helpers used by the initial scan and mutation observer.
         ucc.addUserScript(WKUserScript(
-            source: loadJS("drome-readability"),
+            source: loadJS("drome-extract"),
             injectionTime: .atDocumentEnd,
             forMainFrameOnly: true
         ))
@@ -110,9 +105,9 @@ struct DromeWebView: UIViewRepresentable {
 
         webView.configuration.defaultWebpagePreferences.allowsContentJavaScript = browserVM.jsEnabled
 
-        if !browserVM.customUserAgent.isEmpty {
-            webView.customUserAgent = browserVM.customUserAgent
-        }
+        webView.customUserAgent = browserVM.customUserAgent.isEmpty
+            ? nil
+            : browserVM.customUserAgent
     }
 
     private func loadJS(_ name: String) -> String {

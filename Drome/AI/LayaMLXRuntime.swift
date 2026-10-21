@@ -39,12 +39,19 @@ actor LayaMLXRuntime {
     }
 
     func classify(_ text: String) async throws -> LayaClassificationResponse {
+        let responses = try await classifyBatch([text])
+        guard let first = responses.first else { throw LayaMLXError.invalidModelOutput }
+        return first
+    }
+
+    func classifyBatch(_ texts: [String]) async throws -> [LayaClassificationResponse] {
+        guard !texts.isEmpty else { return [] }
         try Task.checkCancellation()
         let agent = try await loadAgent()
         try Task.checkCancellation()
-        let response = try agent.classify(text: text)
+        let responses = try agent.classifyBatch(texts)
         try Task.checkCancellation()
-        return response
+        return responses
     }
 
     private func loadAgent(
@@ -298,13 +305,46 @@ private final class LayaAgent: @unchecked Sendable {
         )
     }
 
-    func classify(text: String, threshold: Float = 0.55) throws -> LayaClassificationResponse {
+    func classifyBatch(_ texts: [String], threshold: Float = 0.55) throws -> [LayaClassificationResponse] {
+        guard !texts.isEmpty else { return [] }
         try Task.checkCancellation()
         let started = ContinuousClock.now
-        let questions = [Self.unsafeQuestion, Self.categoryQuestion]
-        let items = questions.map { prepare(state: text, question: $0) }
-        let batch = collate(items)
 
+        let unsafeProbabilities = try unsafeProbabilities(for: texts)
+        let unsafeIndices = unsafeProbabilities.indices.filter {
+            unsafeProbabilities[$0] >= threshold
+        }
+        let categories = try categoryLabels(
+            for: unsafeIndices.map { texts[$0] }
+        )
+
+        let duration = started.duration(to: .now)
+        let milliseconds = Double(duration.components.seconds) * 1_000
+            + Double(duration.components.attoseconds) / 1e15
+
+        var categoryByIndex: [Int: String] = [:]
+        for (offset, index) in unsafeIndices.enumerated() {
+            categoryByIndex[index] = categories[offset]
+        }
+
+        return texts.indices.map { index in
+            let probability = unsafeProbabilities[index]
+            let safe = probability < threshold
+            let category = categoryByIndex[index] ?? "safe"
+            let reason = safe ? "Safe content" : Self.reasons[category, default: "Sensitive content"]
+            let confidence = max(probability, 1 - probability)
+            return LayaClassificationResponse(
+                safe: safe,
+                reason: reason,
+                confidence: Double(confidence),
+                latencyMs: milliseconds
+            )
+        }
+    }
+
+    private func unsafeProbabilities(for texts: [String]) throws -> [Float] {
+        let items = texts.map { prepare(state: $0, question: Self.unsafeQuestion) }
+        let batch = collate(items)
         let logits = model(
             inputIDs: batch.inputIDs,
             attentionMask: batch.attentionMask,
@@ -312,34 +352,36 @@ private final class LayaAgent: @unchecked Sendable {
             markerMask: batch.markerMask,
             questionTypes: batch.questionTypes
         )
-
         let unsafeTemperature = temperature(questionType: 2, optionCount: 2)
+        let probabilities = softmax(logits[0 ..< texts.count, 0 ..< 2] / unsafeTemperature, axis: -1)
+        eval(probabilities)
+        try Task.checkCancellation()
+        return probabilities[0 ..< texts.count, 1].asArray(Float.self)
+    }
+
+    private func categoryLabels(for texts: [String]) throws -> [String] {
+        guard !texts.isEmpty else { return [] }
+        let items = texts.map { prepare(state: $0, question: Self.categoryQuestion) }
+        let batch = collate(items)
+        let logits = model(
+            inputIDs: batch.inputIDs,
+            attentionMask: batch.attentionMask,
+            markerPositions: batch.markerPositions,
+            markerMask: batch.markerMask,
+            questionTypes: batch.questionTypes
+        )
         let categoryTemperature = temperature(questionType: 0, optionCount: 8)
-        let unsafeProbabilities = softmax(logits[0, 0 ..< 2] / unsafeTemperature, axis: -1)
-        let categoryProbabilities = softmax(logits[1, 0 ..< 8] / categoryTemperature, axis: -1)
-        eval(unsafeProbabilities, categoryProbabilities)
+        let probabilities = softmax(logits[0 ..< texts.count, 0 ..< 8] / categoryTemperature, axis: -1)
+        eval(probabilities)
         try Task.checkCancellation()
 
-        let unsafeProbability = unsafeProbabilities[1].item(Float.self)
-        let categoryIndex = categoryProbabilities.argMax().item(Int32.self)
-        guard Self.categoryQuestion.options.indices.contains(Int(categoryIndex)) else {
-            throw LayaMLXError.invalidModelOutput
+        return try (0 ..< texts.count).map { row in
+            let index = probabilities[row].argMax().item(Int32.self)
+            guard Self.categoryQuestion.options.indices.contains(Int(index)) else {
+                throw LayaMLXError.invalidModelOutput
+            }
+            return Self.categoryQuestion.options[Int(index)].label
         }
-
-        let safe = unsafeProbability < threshold
-        let category = Self.categoryQuestion.options[Int(categoryIndex)].label
-        let reason = safe ? "Safe content" : Self.reasons[category, default: "Sensitive content"]
-        let confidence = max(unsafeProbability, 1 - unsafeProbability)
-        let duration = started.duration(to: .now)
-        let milliseconds = Double(duration.components.seconds) * 1_000
-            + Double(duration.components.attoseconds) / 1e15
-
-        return LayaClassificationResponse(
-            safe: safe,
-            reason: reason,
-            confidence: Double(confidence),
-            latencyMs: milliseconds
-        )
     }
 
     private func prepare(state: String, question: LayaQuestion) -> LayaPreparedItem {

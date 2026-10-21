@@ -92,6 +92,20 @@ final class BrowserViewModel: ObservableObject {
         addNewTab(url: current.url)
     }
 
+    /// Snapshots are expensive, so capture them only when the tab grid is shown.
+    func captureTabSnapshots() {
+        for tab in tabs {
+            guard let webView = tab.webView, tab.snapshot == nil else { continue }
+            Task { @MainActor in
+                let configuration = WKSnapshotConfiguration()
+                configuration.snapshotWidth = 200
+                if let image = try? await webView.takeSnapshot(configuration: configuration) {
+                    tab.snapshot = image
+                }
+            }
+        }
+    }
+
     // MARK: - Navigation
 
     func navigate(to rawInput: String) {

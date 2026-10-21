@@ -55,4 +55,20 @@ final class AIContentFilterTests: XCTestCase {
         let result = await filter.classify(text: "<p>tiny</p>", useLaya: false)
         XCTAssertNil(result)
     }
+
+    func testBatchClassificationPreservesOrderAndSkipsShortBlocks() async {
+        let results = await filter.classifyBatch(
+            texts: [
+                "too short",
+                "Police reported a murder and a shooting in the neighborhood today.",
+                "This article explains how to bake sourdough bread at home.",
+            ],
+            useLaya: false
+        )
+
+        XCTAssertEqual(results.count, 3)
+        XCTAssertNil(results[0])
+        XCTAssertEqual(results[1]?.isSafe, false)
+        XCTAssertEqual(results[2]?.isSafe, true)
+    }
 }

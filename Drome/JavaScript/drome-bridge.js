@@ -12,14 +12,17 @@
 
     // ── Console interception ──────────────────────────────────────────────────
 
-    const _fmt = (args) => args.map(a => {
-        if (a === null) return 'null';
-        if (a === undefined) return 'undefined';
-        if (typeof a === 'object') {
-            try { return JSON.stringify(a, null, 2); } catch { return String(a); }
-        }
-        return String(a);
-    }).join(' ');
+    const _fmt = (args) => {
+        const text = args.map(a => {
+            if (a === null) return 'null';
+            if (a === undefined) return 'undefined';
+            if (typeof a === 'object') {
+                try { return JSON.stringify(a); } catch { return String(a); }
+            }
+            return String(a);
+        }).join(' ');
+        return text.length > 4000 ? text.slice(0, 4000) + '…' : text;
+    };
 
     ['log', 'info', 'warn', 'error', 'debug', 'trace'].forEach(level => {
         const orig = console[level].bind(console);
@@ -69,20 +72,13 @@
         _send('dromeNetwork', { type: 'request', id, url, method, timestamp: t0 });
 
         return _origFetch.call(this, input, init).then(res => {
-            const clone = res.clone();
-            clone.text().then(body => {
-                _send('dromeNetwork', {
-                    type: 'response', id, url, method,
-                    status: res.status,
-                    duration: Date.now() - t0,
-                    size: body.length,
-                    timestamp: Date.now()
-                });
-            }).catch(() => {
-                _send('dromeNetwork', {
-                    type: 'response', id, url, method,
-                    status: res.status, duration: Date.now() - t0, size: 0, timestamp: Date.now()
-                });
+            const length = Number(res.headers.get('content-length')) || 0;
+            _send('dromeNetwork', {
+                type: 'response', id, url, method,
+                status: res.status,
+                duration: Date.now() - t0,
+                size: length,
+                timestamp: Date.now()
             });
             return res;
         }).catch(err => {
@@ -110,11 +106,21 @@
             _send('dromeNetwork', { type: 'request', id, url, method, timestamp: t0 });
 
             this.addEventListener('load', () => {
+                let size = 0;
+                try {
+                    if (this.responseType === '' || this.responseType === 'text') {
+                        size = this.responseText?.length || 0;
+                    } else if (this.response instanceof ArrayBuffer) {
+                        size = this.response.byteLength;
+                    } else if (this.response && typeof this.response.size === 'number') {
+                        size = this.response.size;
+                    }
+                } catch (e) {}
                 _send('dromeNetwork', {
                     type: 'response', id, url, method,
                     status: this.status,
                     duration: Date.now() - t0,
-                    size: this.responseText?.length || 0,
+                    size: size,
                     timestamp: Date.now()
                 });
             });

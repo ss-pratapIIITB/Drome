@@ -15,6 +15,11 @@ struct ContentView: View {
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: browserVM.showTabGrid)
+        .onChange(of: browserVM.showTabGrid) { _, isShown in
+            if isShown {
+                browserVM.captureTabSnapshots()
+            }
+        }
         .sheet(isPresented: $browserVM.showSettings) {
             SettingsView()
         }

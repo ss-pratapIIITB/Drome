@@ -13,6 +13,12 @@ final class WebViewCoordinator: NSObject {
     private var pageFinishedLoading = false
     private var hideUnsafe = false
     private var pageGeneration = 0
+    private var lastFilteringEnabled: Bool?
+    private var lastHideUnsafe: Bool?
+    private var lastForceDarkMode: Bool?
+    private var progressObservation: NSKeyValueObservation?
+
+    private let scanBatchSize = 4
 
     // Content rules must be attached before navigation. Track desired/applied state so
     // SwiftUI updates cannot race the initial asynchronous rule-list compilation.
@@ -72,19 +78,37 @@ final class WebViewCoordinator: NSObject {
         webView: WKWebView
     ) {
         let becameActive = isActive && !isPageActive
+        let wasFilteringEnabled = lastFilteringEnabled ?? false
+        let hideChanged = lastHideUnsafe != hideUnsafe
+
         isPageActive = isActive
         self.hideUnsafe = hideUnsafe
+        lastFilteringEnabled = filteringEnabled
+        lastHideUnsafe = hideUnsafe
 
-        webView.evaluateJavaScript(JavaScriptInjector.setUnsafeHiddenJS(hideUnsafe), completionHandler: nil)
+        if hideChanged {
+            webView.evaluateJavaScript(JavaScriptInjector.setUnsafeHiddenJS(hideUnsafe), completionHandler: nil)
+        }
 
         guard isActive, filteringEnabled else {
-            cancelPageScan(webView: webView, clearLabels: !filteringEnabled)
+            if wasFilteringEnabled || pageSession != nil || scanTask != nil {
+                cancelPageScan(webView: webView, clearLabels: !filteringEnabled)
+            }
             return
         }
 
         if (becameActive || pageSession == nil), pageFinishedLoading {
             beginPageScan(webView: webView)
         }
+    }
+
+    func applyDarkMode(_ enabled: Bool, on webView: WKWebView) {
+        guard lastForceDarkMode != enabled else { return }
+        lastForceDarkMode = enabled
+        let script = enabled
+            ? JavaScriptInjector.darkModeCSS().source
+            : JavaScriptInjector.removeDarkModeJS()
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     private func cancelPageScan(webView: WKWebView, clearLabels: Bool) {
@@ -162,24 +186,32 @@ final class WebViewCoordinator: NSObject {
         }
 
         while isSessionCurrent(sessionID), !Task.isCancelled {
-            guard let batch = pageSession?.dequeueBatch(limit: 10), !batch.isEmpty else { break }
+            guard let batch = pageSession?.dequeueBatch(limit: scanBatchSize), !batch.isEmpty else { break }
             webView.evaluateJavaScript(JavaScriptInjector.markAllPendingJS(candidates: batch), completionHandler: nil)
 
-            for candidate in batch {
-                guard isSessionCurrent(sessionID), !Task.isCancelled else { return }
-                let result = await aiFilter?.classify(text: candidate.text, useLaya: useLaya)
-                guard isSessionCurrent(sessionID), !Task.isCancelled, let result else { return }
+            let results = await aiFilter?.classifyBatch(
+                texts: batch.map(\.text),
+                useLaya: useLaya
+            ) ?? []
+            guard isSessionCurrent(sessionID), !Task.isCancelled else { return }
 
-                webView.evaluateJavaScript(
-                    JavaScriptInjector.updateLabelJS(
-                        candidate: candidate,
-                        isSafe: result.isSafe,
-                        reason: result.reason,
-                        hideUnsafe: hideUnsafe
-                    ),
-                    completionHandler: nil
+            var updates: [JavaScriptInjector.LabelUpdate] = []
+            for (offset, candidate) in batch.enumerated() where offset < results.count {
+                let result = results[offset] ?? ContentClassificationResult(
+                    isSafe: true,
+                    reason: "Too short to analyze",
+                    method: "skip",
+                    confidence: nil,
+                    latencyMs: nil
                 )
                 pageSession?.markProcessed(candidate)
+                updates.append(JavaScriptInjector.LabelUpdate(
+                    xpath: candidate.xpath,
+                    fingerprint: candidate.fingerprint,
+                    isSafe: result.isSafe,
+                    reason: result.reason,
+                    hideUnsafe: hideUnsafe
+                ))
 
                 let preview = String(candidate.text.prefix(60))
                 log("[\(result.method)] \(result.isSafe ? "✅" : "🔴") \"\(preview)\" — \(result.reason)")
@@ -189,8 +221,15 @@ final class WebViewCoordinator: NSObject {
                     reason: result.reason,
                     preview: preview
                 ))
-                await Task.yield()
             }
+
+            if !updates.isEmpty {
+                webView.evaluateJavaScript(
+                    JavaScriptInjector.updateLabelsJS(updates),
+                    completionHandler: nil
+                )
+            }
+            await Task.yield()
         }
 
         finishScanTask(sessionID: sessionID)
@@ -281,23 +320,20 @@ extension WebViewCoordinator: WKNavigationDelegate {
         tab?.isLoading = true
         tab?.estimatedProgress = 0
         tab?.errorMessage = nil
-        webView.addObserver(self, forKeyPath: "estimatedProgress", options: .new, context: nil)
+        tab?.snapshot = nil
+        progressObservation?.invalidate()
+        progressObservation = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] _, change in
+            guard let progress = change.newValue else { return }
+            Task { @MainActor [weak self] in
+                self?.tab?.estimatedProgress = progress
+            }
+        }
 
         pageFinishedLoading = false
         pageGeneration += 1
+        lastForceDarkMode = nil
         cancelPageScan(webView: webView, clearLabels: true)
         browserVM?.readingModeActive = false
-    }
-
-    override nonisolated func observeValue(forKeyPath keyPath: String?,
-                                           of object: Any?,
-                                           change: [NSKeyValueChangeKey: Any]?,
-                                           context: UnsafeMutableRawPointer?) {
-        guard keyPath == "estimatedProgress",
-              let progress = (change?[.newKey] as? NSNumber)?.doubleValue else { return }
-        Task { @MainActor in
-            self.tab?.estimatedProgress = progress
-        }
     }
 
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
@@ -313,25 +349,16 @@ extension WebViewCoordinator: WKNavigationDelegate {
         tab?.canGoForward = webView.canGoForward
         pageFinishedLoading = true
 
-        webView.removeObserver(self, forKeyPath: "estimatedProgress")
-
-        // Take a snapshot for the tab grid
-        Task {
-            let config = WKSnapshotConfiguration()
-            config.snapshotWidth = 200
-            if let image = try? await webView.takeSnapshot(configuration: config) {
-                tab?.snapshot = image
-            }
-        }
+        progressObservation?.invalidate()
+        progressObservation = nil
 
         // Load favicon
         loadFavicon(for: webView)
 
         // Apply dark mode if needed
         if browserVM?.forceDarkMode == true {
-            let css = "html{filter:invert(1) hue-rotate(180deg)!important}img,video,canvas,picture{filter:invert(1) hue-rotate(180deg)!important}"
-            let js = "var s=document.createElement('style');s.id='__drome_dark';s.textContent=`\(css)`;if(!document.getElementById('__drome_dark'))document.head.appendChild(s);"
-            webView.evaluateJavaScript(js, completionHandler: nil)
+            lastForceDarkMode = nil
+            applyDarkMode(true, on: webView)
         }
 
         if browserVM?.aiFilterEnabled == true,
@@ -344,13 +371,15 @@ extension WebViewCoordinator: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         tab?.isLoading = false
-        webView.removeObserver(self, forKeyPath: "estimatedProgress")
+        progressObservation?.invalidate()
+        progressObservation = nil
         tab?.errorMessage = error.localizedDescription
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         tab?.isLoading = false
-        webView.removeObserver(self, forKeyPath: "estimatedProgress")
+        progressObservation?.invalidate()
+        progressObservation = nil
         let nsErr = error as NSError
         if nsErr.code != NSURLErrorCancelled {
             showErrorPage(webView: webView, error: error)
@@ -381,11 +410,13 @@ extension WebViewCoordinator: WKNavigationDelegate {
 
     private func showBlockedPage(webView: WKWebView, url: URL) {
         let domain = url.host ?? url.absoluteString
+        let escaped = htmlEscape(domain)
+        let query = domain.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let html = """
         <html><body style="font-family:-apple-system;padding:40px;text-align:center;color:#666">
         <h2>🚫 Site Blocked</h2>
-        <p><b>\(domain)</b> is in your block list.</p>
-        <p><a href="drome://unblock?domain=\(domain)">Unblock this site</a></p>
+        <p><b>\(escaped)</b> is in your block list.</p>
+        <p><a href="drome://unblock?domain=\(query)">Unblock this site</a></p>
         </body></html>
         """
         webView.loadHTMLString(html, baseURL: nil)
@@ -396,21 +427,32 @@ extension WebViewCoordinator: WKNavigationDelegate {
         let html = """
         <html><body style="font-family:-apple-system;padding:40px;text-align:center;color:#666">
         <h2>Cannot Open Page</h2>
-        <p>\(nsErr.localizedDescription)</p>
+        <p>\(htmlEscape(nsErr.localizedDescription))</p>
         </body></html>
         """
         webView.loadHTMLString(html, baseURL: nil)
     }
 
+    private func htmlEscape(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#39;")
+    }
+
     private func loadFavicon(for webView: WKWebView) {
-        guard let host = webView.url?.host else { return }
-        let faviconURL = "https://\(host)/favicon.ico"
-        guard let url = URL(string: faviconURL) else { return }
-        Task {
-            if let data = try? Data(contentsOf: url),
-               let img = UIImage(data: data) {
-                tab?.favicon = img
-            }
+        guard let host = webView.url?.host,
+              let url = URL(string: "https://\(host)/favicon.ico") else { return }
+        Task { @MainActor [weak tab] in
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 5
+            request.cachePolicy = .returnCacheDataElseLoad
+            guard let (data, response) = try? await URLSession.shared.data(for: request),
+                  ((response as? HTTPURLResponse)?.statusCode ?? 200) < 400,
+                  let image = UIImage(data: data) else { return }
+            tab?.favicon = image
         }
     }
 }
