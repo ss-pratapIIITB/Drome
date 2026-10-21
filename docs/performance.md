@@ -128,27 +128,7 @@ or unbounded before touching the UI.
 - The 843 MB model download remains the dominant first-run cost. A prewarm or
   download-on-Wi-Fi flow is a product decision, not a code tweak.
 
-## UI plan (next pass)
+## UI plan
 
-The shell is functional but visually generic: system bar backgrounds, a dense
-toolbar, and an AI panel that reads like a debug log. The next pass should focus
-on trust and legibility rather than decoration.
-
-1. **One primary surface.** Make the page the hero: collapse the address bar to
-   a compact title pill while scrolling, and give the bottom bar a clear
-   hierarchy (back, forward, tabs, AI, menu).
-2. **Make the filter legible.** Replace per-block badges with a single page
-   status chip ("On-device scan · 12 blocks · 2 hidden") and a sheet that
-   explains why a block was hidden. Keep inline labels optional.
-3. **A calmer AI panel.** Move from a console-style list to grouped results:
-   hidden blocks, reviewed-safe blocks, and a plain-language summary. Keep raw
-   latency and XPath details behind an "Advanced" disclosure.
-4. **First-run flow.** Explain the on-device model, show download size and
-   progress, and let the user start with keyword-only mode while the model
-   downloads.
-5. **Empty, loading, and error states.** New tab, model download, offline page,
-   blocked page, and no-results states should share one visual language.
-6. **Accessibility.** Dynamic Type for the address bar and AI sheet, reduce
-   motion for the tab grid, and contrast-check the safe/unsafe colors.
-7. **Motion.** One spring for the tab grid, one fade for filter labels, and no
-   animation on page load or scan progress.
+See [`ui-plan.md`](ui-plan.md) for the calm-native-utility direction and the
+browser shell + AI review sheet plan.

@@ -31,7 +31,7 @@ The interesting engineering is not the prompt. It is the memory budget, the tens
 
 A 90-second recording plan — including the reversible hide, the Laya playground, and the airplane-mode proof — is in [`docs/demo.md`](docs/demo.md). The same document lists the screenshots and GIF the repository should carry.
 
-Performance findings, the fast-path changes, and remaining risks are in [`docs/performance.md`](docs/performance.md).
+Performance findings, the fast-path changes, and remaining risks are in [`docs/performance.md`](docs/performance.md). The proposed UI direction is in [`docs/ui-plan.md`](docs/ui-plan.md).
 
 ## Install
 
