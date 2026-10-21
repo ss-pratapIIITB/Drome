@@ -11,7 +11,7 @@ final class AIContentFilterTests: XCTestCase {
 
     func testHighRiskKeywordIsFlaggedWithoutLoadingTheModel() async {
         let result = await filter.classify(
-            text: "The report described a murder in the neighborhood today.",
+            text: "Police reported a murder and a shooting in the neighborhood today.",
             useLaya: false
         )
 
@@ -31,7 +31,7 @@ final class AIContentFilterTests: XCTestCase {
     }
 
     func testShortTextStaysOnKeywordPathEvenWhenLayaIsEnabled() async {
-        let result = await filter.classify(text: "Drome is great", useLaya: true)
+        let result = await filter.classify(text: "Drome browsering extraordinaire", useLaya: true)
 
         XCTAssertEqual(result?.isSafe, true)
         XCTAssertEqual(result?.method, "kw")
