@@ -13,7 +13,7 @@ settings:
     DEVELOPMENT_TEAM: PAZR439BX6
     CODE_SIGN_STYLE: Automatic
     PRODUCT_BUNDLE_IDENTIFIER: com.surendrapratap.drome
-    MARKETING_VERSION: "1.0"
+    MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
     TARGETED_DEVICE_FAMILY: "1"
     SWIFT_STRICT_CONCURRENCY: targeted
@@ -35,9 +35,12 @@ targets:
       - path: Drome
         excludes:
           - "**/*.js"
-    resources:
       - path: Drome/JavaScript/drome-bridge.js
+        buildPhase: resources
       - path: Drome/JavaScript/drome-readability.js
+        buildPhase: resources
+      - path: Drome/PrivacyInfo.xcprivacy
+        buildPhase: resources
     dependencies:
       - package: MLXSwift
         product: MLX
