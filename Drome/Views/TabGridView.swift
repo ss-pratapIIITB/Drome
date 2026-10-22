@@ -3,28 +3,15 @@ import SwiftUI
 struct TabGridView: View {
     @EnvironmentObject var browserVM: BrowserViewModel
 
-    private let columns = [GridItem(.flexible()), GridItem(.flexible())]
-
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Color(.systemBackground).ignoresSafeArea()
+        GeometryReader { geometry in
+            let margin = DromeLayout.margin(for: geometry.size.width)
 
             VStack(spacing: 0) {
-                HStack {
-                    Text("\(browserVM.tabs.count) Tab\(browserVM.tabs.count == 1 ? "" : "s")")
-                        .font(.headline)
-                    Spacer()
-                    Button("Done") {
-                        withAnimation { browserVM.showTabGrid = false }
-                    }
-                    .fontWeight(.semibold)
-                }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 12)
+                header(margin: margin)
 
                 ScrollView {
-                    LazyVGrid(columns: columns, spacing: 16) {
+                    LazyVGrid(columns: columns(for: geometry.size.width), spacing: 14) {
                         ForEach(Array(browserVM.tabs.enumerated()), id: \.element.id) { index, tab in
                             TabCardView(tab: tab, isSelected: index == browserVM.currentTabIndex) {
                                 browserVM.selectTab(index)
@@ -33,36 +20,73 @@ struct TabGridView: View {
                             }
                         }
                     }
-                    .padding(16)
-                    .padding(.bottom, 80)
+                    .padding(.horizontal, margin)
+                    .padding(.top, 8)
+                    .padding(.bottom, 16)
                 }
+                .scrollBounceBehavior(.basedOnSize)
             }
-
-            HStack(spacing: 20) {
-                Button {
-                    browserVM.addNewTab()
-                } label: {
-                    Label("New Tab", systemImage: "plus")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(Color.accentColor, in: RoundedRectangle(cornerRadius: 12))
-                        .foregroundStyle(.white)
-                }
-
-                Button {
-                    browserVM.duplicateTab()
-                } label: {
-                    Label("Duplicate", systemImage: "plus.square.on.square")
-                        .font(.system(size: 15, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 48)
-                        .background(Color(uiColor: .secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-                }
+            .background(Color(.systemBackground).ignoresSafeArea())
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                actionBar(margin: margin)
+                    .background(.bar, ignoresSafeAreaEdges: .bottom)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 32)
         }
+    }
+
+    private func header(margin: CGFloat) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Tabs")
+                .font(.largeTitle.bold())
+
+            Spacer(minLength: 12)
+
+            Text("\(browserVM.tabs.count)")
+                .font(.subheadline.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("\(browserVM.tabs.count) open tabs")
+
+            Button("Done") {
+                withAnimation { browserVM.showTabGrid = false }
+            }
+            .font(.body.weight(.semibold))
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(.horizontal, margin)
+        .padding(.top, 12)
+        .padding(.bottom, 4)
+    }
+
+    private func actionBar(margin: CGFloat) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                browserVM.addNewTab()
+            } label: {
+                Label("New Tab", systemImage: "plus")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+
+            Button {
+                browserVM.duplicateTab()
+            } label: {
+                Label("Duplicate", systemImage: "plus.square.on.square")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.large)
+        }
+        .padding(.horizontal, margin)
+        .padding(.vertical, 10)
+    }
+
+    private func columns(for width: CGFloat) -> [GridItem] {
+        let margin = DromeLayout.margin(for: width)
+        let available = max(0, width - 2 * margin)
+        let minimum: CGFloat = width < 430 ? 150 : 170
+        let count = max(2, min(5, Int(available / (minimum + 14))))
+        return Array(repeating: GridItem(.flexible(), spacing: 14), count: count)
     }
 }
 
@@ -75,57 +99,69 @@ struct TabCardView: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .topTrailing) {
-                Group {
-                    if let snapshot = tab.snapshot {
-                        Image(uiImage: snapshot)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        Rectangle()
-                            .fill(Color(uiColor: .tertiarySystemBackground))
-                            .overlay {
-                                Image(systemName: "globe")
-                                    .font(.system(size: 30))
-                                    .foregroundStyle(.quaternary)
-                            }
+                Color(uiColor: .tertiarySystemBackground)
+                    .aspectRatio(4.0 / 3.0, contentMode: .fit)
+                    .overlay {
+                        if let snapshot = tab.snapshot {
+                            Image(uiImage: snapshot)
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Image(systemName: "globe")
+                                .font(.title)
+                                .foregroundStyle(.quaternary)
+                        }
                     }
-                }
-                .frame(height: 140)
-                .clipped()
-                .contentShape(Rectangle())
-                .onTapGesture(perform: onSelect)
+                    .clipped()
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: onSelect)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityLabel(tab.displayTitle)
+                    .accessibilityHint("Opens this tab")
 
                 Button(action: onClose) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(.white)
-                        .shadow(radius: 2)
+                        .font(.title3)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, .black.opacity(0.45))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                .padding(6)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Close tab")
             }
 
-            HStack {
+            HStack(spacing: 6) {
                 if let favicon = tab.favicon {
                     Image(uiImage: favicon)
                         .resizable()
                         .frame(width: 14, height: 14)
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                        .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
                 }
+
                 Text(tab.displayTitle)
-                    .font(.system(size: 12))
+                    .font(.caption)
                     .lineLimit(1)
                     .foregroundStyle(.secondary)
-                Spacer()
+
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .frame(minHeight: 40)
             .background(Color(uiColor: .secondarySystemBackground))
+            .contentShape(Rectangle())
+            .onTapGesture(perform: onSelect)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-        )
-        .shadow(color: .black.opacity(0.1), radius: 4, y: 2)
+        .clipShape(RoundedRectangle(cornerRadius: DromeLayout.cardCorner, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: DromeLayout.cardCorner, style: .continuous)
+                .strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.08), lineWidth: isSelected ? 2 : 1)
+        }
+        .shadow(color: .black.opacity(0.08), radius: 6, y: 2)
+        .contextMenu {
+            Button(role: .destructive, action: onClose) {
+                Label("Close Tab", systemImage: "xmark")
+            }
+        }
     }
 }

@@ -21,6 +21,43 @@ controls, 44 pt targets. The page is the hero; chrome recedes. The distinct
 Drome moment is the filter signal: a small status chip that expands into a
 clear, plain-language review sheet.
 
+## Responsiveness and keyboard audit
+
+Problems found in the shipped shell:
+
+- `ContentView` ignored the bottom safe area, so the toolbar could sit under the
+  home indicator.
+- The browser was a plain `VStack`; the toolbar was not part of the keyboard
+  safe area, so opening the keyboard could squeeze the page and devtools in
+  unpredictable ways.
+- The new-tab search field was centered between `Spacer`s with no scroll
+  container, so a keyboard could hide it on short screens and in landscape.
+- The address field had no focus state, no keyboard dismissal affordance, and
+  no way to cancel an edit.
+- Developer Tools used a fixed height based on `UIScreen.main.bounds.height`,
+  ignoring the keyboard and the actual available height.
+- The tab grid always used two columns and a fixed 140 pt thumbnail, which is
+  cramped on an SE and sparse in landscape.
+- Most UI text used hard-coded point sizes instead of Dynamic Type styles.
+
+Implemented in this pass:
+
+- Removed the bottom safe-area ignore; the toolbar now lives in a
+  `safeAreaInset` and paints its material through the home-indicator area.
+- Added `DromeLayout` for adaptive margins, control radii, and search widths.
+- Rebuilt the address bar as a compact pill with `@FocusState`, a clear action,
+  a cancel action, and a keyboard `Done` button.
+- Rebuilt the new-tab screen as a scrollable, focused search surface that scrolls
+  the field into view when the keyboard opens.
+- Made Developer Tools height derive from the live available height, including
+  keyboard reduction.
+- Made the tab grid adaptive: 2 columns on phones, up to 5 in wide layouts,
+  flexible card aspect ratios, and safe-area-aware bottom actions.
+- Replaced fixed font sizes in the new surfaces with system text styles.
+
+Manual verification still required on device classes the simulator can cover:
+iPhone SE, iPhone 15/16, Pro Max, landscape, dark mode, and AX3/AX5.
+
 ## Structural thesis
 
 1. **One signal, not a dashboard.** The browser chrome carries a single filter

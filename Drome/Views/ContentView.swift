@@ -7,7 +7,6 @@ struct ContentView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             BrowserView(devToolsVM: devToolsVM)
-                .ignoresSafeArea(edges: .bottom)
 
             if browserVM.showTabGrid {
                 TabGridView()
@@ -19,6 +18,12 @@ struct ContentView: View {
             if isShown {
                 browserVM.captureTabSnapshots()
             }
+        }
+        .sheet(isPresented: $browserVM.showAIReview) {
+            AIReviewView(devToolsVM: devToolsVM)
+                .environmentObject(browserVM)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $browserVM.showSettings) {
             SettingsView()

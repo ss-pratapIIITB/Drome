@@ -792,6 +792,7 @@ struct AIChatView: View {
                     }
                     .padding(.vertical, 8)
                 }
+                .scrollDismissesKeyboard(.interactively)
                 .onChange(of: devToolsVM.aiChatMessages.count) { _ in
                     if let last = devToolsVM.aiChatMessages.last {
                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }

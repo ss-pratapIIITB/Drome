@@ -15,6 +15,7 @@ final class BrowserViewModel: ObservableObject {
     @Published var showSettings = false
     @Published var showWebsiteBlocker = false
     @Published var showDownloads = false
+    @Published var showAIReview = false
     @Published var devToolsHeight: CGFloat = 300
 
     // MARK: - Settings
