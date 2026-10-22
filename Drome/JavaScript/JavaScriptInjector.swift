@@ -11,14 +11,6 @@ enum JavaScriptInjector {
         )
     }
 
-    static func makeReadabilityScript() -> WKUserScript {
-        WKUserScript(
-            source: dromeReadabilityJS,
-            injectionTime: .atDocumentEnd,
-            forMainFrameOnly: true
-        )
-    }
-
     static func darkModeCSS() -> WKUserScript {
         let css = """
         html { filter: invert(1) hue-rotate(180deg) !important; }
