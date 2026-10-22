@@ -17,7 +17,7 @@ struct SettingsView: View {
                     Toggle(isOn: $browserVM.aiFilterEnabled) {
                         Label("AI Content Filter", systemImage: "sparkles.rectangle.stack")
                     }
-                    .onChange(of: browserVM.aiFilterEnabled) { _ in
+                    .onChange(of: browserVM.aiFilterEnabled) { _, _ in
                         browserVM.applyAISettingsToCurrentPage()
                     }
                     if browserVM.aiFilterEnabled {
@@ -25,7 +25,7 @@ struct SettingsView: View {
                             Label("Hide Unsafe Content", systemImage: "eye.slash")
                         }
                         .padding(.leading, 24)
-                        .onChange(of: browserVM.aiRemoveUnsafe) { _ in
+                        .onChange(of: browserVM.aiRemoveUnsafe) { _, _ in
                             browserVM.applyAISettingsToCurrentPage()
                         }
 
@@ -39,7 +39,7 @@ struct SettingsView: View {
                     Toggle(isOn: $browserVM.blockPopups) {
                         Label("Block Pop-ups", systemImage: "xmark.rectangle")
                     }
-                    .onChange(of: browserVM.blockPopups) { _ in
+                    .onChange(of: browserVM.blockPopups) { _, _ in
                         browserVM.reload()
                     }
                     NavigationLink {
@@ -59,7 +59,7 @@ struct SettingsView: View {
                     Toggle(isOn: $browserVM.jsEnabled) {
                         Label("JavaScript", systemImage: "chevron.left.forwardslash.chevron.right")
                     }
-                    .onChange(of: browserVM.jsEnabled) { _ in
+                    .onChange(of: browserVM.jsEnabled) { _, _ in
                         browserVM.reload()
                     }
                     NavigationLink {

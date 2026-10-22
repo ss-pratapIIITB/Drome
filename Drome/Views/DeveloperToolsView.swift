@@ -139,7 +139,7 @@ struct ConsoleView: View {
                         }
                     }
                 }
-                .onChange(of: devToolsVM.filteredConsole.count) { _ in
+                .onChange(of: devToolsVM.filteredConsole.count) { _, _ in
                     if let last = devToolsVM.filteredConsole.last {
                         proxy.scrollTo(last.id, anchor: .bottom)
                     }
@@ -793,7 +793,7 @@ struct AIChatView: View {
                     .padding(.vertical, 8)
                 }
                 .scrollDismissesKeyboard(.interactively)
-                .onChange(of: devToolsVM.aiChatMessages.count) { _ in
+                .onChange(of: devToolsVM.aiChatMessages.count) { _, _ in
                     if let last = devToolsVM.aiChatMessages.last {
                         withAnimation { proxy.scrollTo(last.id, anchor: .bottom) }
                     }

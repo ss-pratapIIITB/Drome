@@ -26,7 +26,7 @@ struct WebsiteBlockerView: View {
                             Spacer()
                             Toggle("", isOn: $rule.isEnabled)
                                 .labelsHidden()
-                                .onChange(of: rule.isEnabled) { _ in
+                                .onChange(of: rule.isEnabled) { _, _ in
                                     browserVM.toggleBlockedDomain(rule)
                                 }
                         }

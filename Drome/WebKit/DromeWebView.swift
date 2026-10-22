@@ -112,7 +112,7 @@ struct DromeWebView: UIViewRepresentable {
 
     private func loadJS(_ name: String) -> String {
         guard let url = Bundle.main.url(forResource: name, withExtension: "js"),
-              let source = try? String(contentsOf: url) else {
+              let source = try? String(contentsOf: url, encoding: .utf8) else {
             return ""
         }
         return source

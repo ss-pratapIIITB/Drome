@@ -1,10 +1,13 @@
 import WebKit
 
-actor ContentBlocker {
+@MainActor
+final class ContentBlocker {
     static let shared = ContentBlocker()
 
     private var cachedRuleList: WKContentRuleList?
     private var loadingTask: Task<WKContentRuleList, Error>?
+
+    private init() {}
 
     func ruleList() async throws -> WKContentRuleList {
         if let cachedRuleList { return cachedRuleList }
@@ -52,6 +55,7 @@ actor ContentBlocker {
     }
 }
 
+@MainActor
 private func compileRules() async throws -> WKContentRuleList {
     return try await withCheckedThrowingContinuation { cont in
         WKContentRuleListStore.default().compileContentRuleList(
