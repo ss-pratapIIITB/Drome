@@ -31,7 +31,7 @@ struct BrowserView: View {
                 if browserVM.showDevTools {
                     Divider()
                     DeveloperToolsView(devToolsVM: devToolsVM)
-                        .frame(height: devToolsHeight(for: geometry.size.height))
+                        .frame(height: devToolsHeight(for: max(0, geometry.size.height - DromeLayout.bottomToolbarReserve)))
                         .background(Color(uiColor: .secondarySystemBackground))
                         .gesture(
                             DragGesture()

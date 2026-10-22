@@ -5,6 +5,7 @@ enum DromeLayout {
     static let compactMargin: CGFloat = 12
     static let wideMargin: CGFloat = 24
     static let toolbarHeight: CGFloat = 50
+    static let bottomToolbarReserve: CGFloat = toolbarHeight + 8
     static let addressBarMinHeight: CGFloat = 44
     static let controlCorner: CGFloat = 12
     static let cardCorner: CGFloat = 16
