@@ -1,0 +1,118 @@
+name: UI snapshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  snapshots:
+    name: Snapshots (${{ matrix.device }})
+    runs-on: macos-26
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [small, large]
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Cache Swift packages
+        uses: actions/cache@v4
+        with:
+          path: build/SourcePackages
+          key: ${{ runner.os }}-spm-${{ hashFiles('Drome.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve packages
+        run: >-
+          xcodebuild
+          -resolvePackageDependencies
+          -project Drome.xcodeproj
+          -scheme Drome
+          -clonedSourcePackagesDirPath build/SourcePackages
+
+      - name: Select simulator
+        env:
+          DEVICE_KIND: ${{ matrix.device }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json
+          import os
+          import re
+          import subprocess
+
+          kind = os.environ["DEVICE_KIND"]
+          data = json.loads(subprocess.check_output(["xcrun", "simctl", "list", "devices", "available", "--json"]))["devices"]
+
+          def version(runtime):
+              match = re.search(r"iOS-(\d+)-(\d+)", runtime)
+              return tuple(int(part) for part in match.groups()) if match else (0, 0)
+
+          runtimes = sorted((name for name in data if "iOS-" in name), key=version, reverse=True)
+          runtime = next((name for name in runtimes if data[name]), None)
+          if not runtime:
+              raise SystemExit("No available iOS simulator runtime")
+
+          devices = [device for device in data[runtime] if device.get("isAvailable") and "iPhone" in device.get("name", "")]
+          if not devices:
+              raise SystemExit("No available iPhone simulator")
+
+          preferences = {
+              "small": ["iPhone SE", "iPhone 16e", "iPhone 16", "iPhone 17"],
+              "large": ["iPhone 16 Pro Max", "iPhone 17 Pro Max", "iPhone 16 Plus", "iPhone 17 Pro"],
+          }
+          chosen = None
+          for name in preferences[kind]:
+              chosen = next((device for device in devices if device["name"].startswith(name)), None)
+              if chosen:
+                  break
+          chosen = chosen or (devices[0] if kind == "small" else devices[-1])
+
+          print(f"SIMULATOR_NAME={chosen['name']}")
+          print(f"SIMULATOR_UDID={chosen['udid']}")
+          PY
+
+      - name: Prepare simulator
+        run: |
+          echo "Using $SIMULATOR_NAME ($SIMULATOR_UDID)"
+          xcrun simctl boot "$SIMULATOR_UDID" || true
+          xcrun simctl bootstatus "$SIMULATOR_UDID" -b
+          xcrun simctl status_bar "$SIMULATOR_UDID" override \
+            --time "9:41" \
+            --batteryState charged \
+            --batteryLevel 100 \
+            --wifiBars 3 \
+            --cellularBars 4 || true
+
+      - name: Run UI tests
+        run: >-
+          xcodebuild
+          -project Drome.xcodeproj
+          -scheme DromeUITests
+          -destination "platform=iOS Simulator,id=$SIMULATOR_UDID"
+          -clonedSourcePackagesDirPath build/SourcePackages
+          -derivedDataPath build/DerivedData
+          -resultBundlePath "build/UI-${{ matrix.device }}.xcresult"
+          -parallel-testing-enabled NO
+          CODE_SIGNING_ALLOWED=NO
+          test
+
+      - name: Export screenshots
+        if: always()
+        run: |
+          mkdir -p "build/screenshots-${{ matrix.device }}"
+          xcrun xcresulttool export attachments \
+            --path "build/UI-${{ matrix.device }}.xcresult" \
+            --output-path "build/screenshots-${{ matrix.device }}" || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-snapshots-${{ matrix.device }}
+          path: |
+            build/screenshots-${{ matrix.device }}
+            build/UI-${{ matrix.device }}.xcresult
+          if-no-files-found: warn

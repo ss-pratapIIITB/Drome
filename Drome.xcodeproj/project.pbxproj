@@ -43,11 +43,19 @@
 		D89C93CECC19F17AD44AB4A4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFC7461A315578535A3164F /* ContentView.swift */; };
 		F3ADB354D96763E100DA42B2 /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */; };
 		F5B80CC2DBB2DDAE4487D91C /* MLX in Frameworks */ = {isa = PBXBuildFile; productRef = F1FD4082D4A21A8A4625254B /* MLX */; };
+		FCE458114957A8E54F3CA576 /* DromeUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9B066FAB9936C552219BD57 /* DromeUITests.swift */; };
 		FE1D6A161855A064AD17EE5E /* JavaScriptInjector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C328FE99767FC874ACE1E59 /* JavaScriptInjector.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
 		BBEC1528F6F1407697F0B464 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E80B08AC1B7D6B07DBBEA6FC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EE75DD6986B511121D1CEB08;
+			remoteInfo = Drome;
+		};
+		C8125E5B2BF0884AFBA01D5D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = E80B08AC1B7D6B07DBBEA6FC /* Project object */;
 			proxyType = 1;
@@ -68,6 +76,7 @@
 		3897C1E1B723E9AAB1033B8A /* BrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserView.swift; sourceTree = "<group>"; };
 		3B6ACEFFDDB5BE1B7C27F5CD /* AIContentFilterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIContentFilterTests.swift; sourceTree = "<group>"; };
 		462130148CCF4F743232D7A8 /* Drome.Sideload.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Drome.Sideload.entitlements; sourceTree = "<group>"; };
+		4A58B4A405DCF48AC91E0667 /* DromeUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DromeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		556DB9FF680979C7CA1FA0A9 /* Drome.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Drome.entitlements; sourceTree = "<group>"; };
 		5C328FE99767FC874ACE1E59 /* JavaScriptInjector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptInjector.swift; sourceTree = "<group>"; };
 		65223219DD91D8ABE455B6AD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -84,6 +93,7 @@
 		A1F01451951BD613D5029BD1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A493663A539E175178B91264 /* FilterStatusBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterStatusBar.swift; sourceTree = "<group>"; };
 		A8F834EA9E316486106C646E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A9B066FAB9936C552219BD57 /* DromeUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DromeUITests.swift; sourceTree = "<group>"; };
 		AA2C008FAE79260CF4748548 /* drome-extract.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "drome-extract.js"; sourceTree = "<group>"; };
 		AAE29DD84655FF4E627A2C1C /* WebViewCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewCoordinator.swift; sourceTree = "<group>"; };
 		B26186211FE859B965A28F7D /* JavaScriptInjectorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptInjectorTests.swift; sourceTree = "<group>"; };
@@ -117,6 +127,7 @@
 			children = (
 				DF72E53659CE5EB03BFA89F7 /* Drome */,
 				D333BF110B34ED0883E2B9CB /* DromeTests */,
+				4E7CC01F3012D518AA529BFC /* DromeUITests */,
 				1FF1E03EB2FF940595C66C2D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -126,8 +137,17 @@
 			children = (
 				C80B8A0600D72899A0373A68 /* Drome.app */,
 				7B09025AAD6417276549D2DF /* DromeTests.xctest */,
+				4A58B4A405DCF48AC91E0667 /* DromeUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		4E7CC01F3012D518AA529BFC /* DromeUITests */ = {
+			isa = PBXGroup;
+			children = (
+				A9B066FAB9936C552219BD57 /* DromeUITests.swift */,
+			);
+			path = DromeUITests;
 			sourceTree = "<group>";
 		};
 		56A5159F163A8433C64919E7 /* JavaScript */ = {
@@ -239,6 +259,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		6C4A8DC8E26D0E2A15186A88 /* DromeUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F60BDACFF49CB5B61925F2DA /* Build configuration list for PBXNativeTarget "DromeUITests" */;
+			buildPhases = (
+				6547E6A934798F137138DA12 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				2E4D05F708AAE075F283F352 /* PBXTargetDependency */,
+			);
+			name = DromeUITests;
+			packageProductDependencies = (
+			);
+			productName = DromeUITests;
+			productReference = 4A58B4A405DCF48AC91E0667 /* DromeUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		95B2AE3E93D6060F52126B53 /* DromeTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8CC581BE3E8268F1735F9872 /* Build configuration list for PBXNativeTarget "DromeTests" */;
@@ -289,6 +327,11 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
+					6C4A8DC8E26D0E2A15186A88 = {
+						DevelopmentTeam = PAZR439BX6;
+						ProvisioningStyle = Automatic;
+						TestTargetID = EE75DD6986B511121D1CEB08;
+					};
 					95B2AE3E93D6060F52126B53 = {
 						DevelopmentTeam = PAZR439BX6;
 						ProvisioningStyle = Automatic;
@@ -319,6 +362,7 @@
 			targets = (
 				EE75DD6986B511121D1CEB08 /* Drome */,
 				95B2AE3E93D6060F52126B53 /* DromeTests */,
+				6C4A8DC8E26D0E2A15186A88 /* DromeUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -381,9 +425,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		6547E6A934798F137138DA12 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FCE458114957A8E54F3CA576 /* DromeUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2E4D05F708AAE075F283F352 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EE75DD6986B511121D1CEB08 /* Drome */;
+			targetProxy = C8125E5B2BF0884AFBA01D5D /* PBXContainerItemProxy */;
+		};
 		66999D900005D409BA519EE2 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EE75DD6986B511121D1CEB08 /* Drome */;
@@ -392,6 +449,24 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		02625BF04EB8CD24A6631B9F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.surendrapratap.drome.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Drome;
+			};
+			name = Release;
+		};
 		037743420DAC9B0B2C25D9AA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -477,6 +552,24 @@
 				SWIFT_STRICT_CONCURRENCY = targeted;
 				SWIFT_VERSION = 5;
 				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		0F0D2F48982A4C05E101B4C9 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.surendrapratap.drome.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Drome;
 			};
 			name = Debug;
 		};
@@ -627,6 +720,15 @@
 			buildConfigurations = (
 				EE5292879A681BAB832C911D /* Debug */,
 				2D6C77E465E5CA1B230D1B8D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F60BDACFF49CB5B61925F2DA /* Build configuration list for PBXNativeTarget "DromeUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0F0D2F48982A4C05E101B4C9 /* Debug */,
+				02625BF04EB8CD24A6631B9F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

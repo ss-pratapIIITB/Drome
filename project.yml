@@ -74,3 +74,27 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.surendrapratap.drome.tests
         GENERATE_INFOPLIST_FILE: YES
+
+  DromeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: DromeUITests
+    dependencies:
+      - target: Drome
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.surendrapratap.drome.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Drome
+
+schemes:
+  DromeUITests:
+    build:
+      targets:
+        Drome: all
+        DromeUITests: [test]
+    test:
+      targets:
+        - DromeUITests
