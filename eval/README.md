@@ -31,9 +31,9 @@ node eval/extract_blocks.mjs --html eval/fixtures/extract-test.html
 
 Real mobile pages (BBC article, Verge feed, Al Jazeera article) are saved with
 an iPhone user agent (`eval/save_fixture.mjs`), then synthetic unsafe units
-(ad urgency, doom finance, gore comments, panic health) are cloned into each
-page's own card/paragraph structure (`eval/fixture_build.mjs`) with ground
-truth in `fixtures/mobile/fixtures.json`.
+(ad urgency, doom finance, gore comments, panic health, explicit media with
+alt/aria-label text) are cloned into each page's own card/paragraph structure
+(`eval/fixture_build.mjs`) with ground truth in `fixtures/mobile/fixtures.json`.
 
 ```bash
 node eval/fixture_build.mjs                        # rebuild fixtures + ground truth

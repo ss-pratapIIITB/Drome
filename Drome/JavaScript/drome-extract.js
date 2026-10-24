@@ -25,6 +25,23 @@
         'inline', 'inline-block', 'inline-flex', 'inline-grid', 'contents'
     ]);
 
+    // Media candidates: images and videos are classified by their alt /
+    // aria-label / title text so an unsafe thumbnail or poster is hidden like
+    // any text block. Media without descriptive text stays untouched.
+    const MEDIA_TAGS = new Set(['IMG', 'VIDEO']);
+
+    function mediaTextOf(el) {
+        let text = (el.getAttribute && el.getAttribute('alt')) || '';
+        if (!text) text = (el.getAttribute && el.getAttribute('aria-label')) || '';
+        if (!text) text = (el.getAttribute && el.getAttribute('title')) || '';
+        return normalize(text);
+    }
+
+    function hasMediaText(el) {
+        const text = mediaTextOf(el);
+        return text.length >= MIN_LENGTH && /\p{L}/u.test(text);
+    }
+
     function normalize(text) {
         return text.replace(/\s+/g, ' ').trim();
     }
@@ -96,6 +113,15 @@
         const blocks = [];
         const walker = document.createTreeWalker(start, NodeFilter.SHOW_ELEMENT, {
             acceptNode(node) {
+                if (MEDIA_TAGS.has(node.tagName)) {
+                    if (!isVisible(node)) return NodeFilter.FILTER_REJECT;
+                    return hasMediaText(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+                }
+                if (node.tagName === 'PICTURE') {
+                    // Walk into <picture> so a qualifying inner <img> is reached.
+                    if (!isVisible(node)) return NodeFilter.FILTER_REJECT;
+                    return node.querySelector('img') ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_REJECT;
+                }
                 if (SKIP_TAGS.has(node.tagName)) return NodeFilter.FILTER_REJECT;
                 if (!isVisible(node)) return NodeFilter.FILTER_REJECT;
                 return NodeFilter.FILTER_ACCEPT;
@@ -104,7 +130,8 @@
 
         let node = walker.currentNode;
         while (node) {
-            if (node !== document.body && !INLINE_DISPLAYS.has(displayOf(node))) {
+            const isMedia = MEDIA_TAGS.has(node.tagName);
+            if (node !== document.body && (isMedia || !INLINE_DISPLAYS.has(displayOf(node)))) {
                 blocks.push(node);
             }
             node = walker.nextNode();
@@ -131,6 +158,22 @@
 
             const role = el.getAttribute('role');
             if (role && SKIP_ROLES.has(role)) continue;
+
+            if (MEDIA_TAGS.has(el.tagName)) {
+                const mediaText = mediaTextOf(el);
+                if (mediaText.length < MIN_LENGTH || !/\p{L}/u.test(mediaText)) continue;
+                if (seenText.has(mediaText)) continue;
+                seenText.add(mediaText);
+                const mediaID = stableID(el);
+                candidates.push({
+                    id: mediaID,
+                    text: mediaText.slice(0, MAX_TEXT),
+                    xpath: "//*[@data-drome-block-id='" + mediaID + "']",
+                    fingerprint: fingerprint(mediaText)
+                });
+                if (candidates.length >= MAX_CANDIDATES) break;
+                continue;
+            }
 
             const text = normalize(el.innerText || el.textContent || '');
             if (text.length < MIN_LENGTH) continue;
@@ -272,14 +315,22 @@
         while (current.parentElement && current.parentElement !== document.body && depth < SECTION_MAX_DEPTH) {
             depth++;
             const parent = current.parentElement;
-            if (SECTION_BROAD.has(parent.tagName)) break;
+            // Broad containers are climb stoppers, but only while they wrap
+            // more than one unit's worth of text: news feeds render
+            // card-level components as <article>/<section> (a 115-char
+            // playlist item), and those must stay absorbable.
+            if (SECTION_BROAD.has(parent.tagName) &&
+                textLength(parent) > SECTION_MAX_CARD_CHARS) break;
             const role = parent.getAttribute('role');
             if (role === 'main' || role === 'contentinfo' || role === 'list') break;
             if (repeatedUnit(current)) break;
 
             const parentLen = textLength(parent);
             const currentLen = textLength(current);
-            if (currentLen < SECTION_MIN_CARD_CHARS) break;
+            // Text fragments too small to anchor a unit keep the guard; a
+            // zero-text subtree (media elements, image wrappers) has nothing
+            // to lose by climbing, so it may continue into its card/figure.
+            if (currentLen > 0 && currentLen < SECTION_MIN_CARD_CHARS) break;
 
             // The parent must still be a UNIT's worth of content.
             const otherChildren = largestOtherContentChild(parent, current);

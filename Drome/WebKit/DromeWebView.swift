@@ -49,6 +49,7 @@ struct DromeWebView: UIViewRepresentable {
         context.coordinator.updatePageActivity(
             isActive: browserVM.currentTab?.id == tab.id,
             filteringEnabled: browserVM.aiFilterEnabled,
+            showMarkers: browserVM.aiShowScanMarkers,
             hideUnsafe: browserVM.aiRemoveUnsafe,
             webView: webView
         )

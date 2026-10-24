@@ -58,7 +58,15 @@ try {
       style.textContent = '.__drome_unsafe_hidden { display: none !important; }';
       document.head.appendChild(style);
 
-      const before = norm(document.body.innerText);
+      // Media visibility is measured through alt / aria-label / title text:
+      // body.innerText does not include it, but unhidden media surface it.
+      const mediaEls = [...document.querySelectorAll('img, video')];
+      const mediaOf = (el) =>
+        norm([el.getAttribute('alt'), el.getAttribute('aria-label'), el.getAttribute('title')]
+          .map((v) => v || '').join(' '));
+      const beforeMedia = mediaEls
+        .map(mediaOf).filter((t) => t.length >= 25).join(' ');
+      const before = norm(document.body.innerText + ' ' + beforeMedia);
       const blocks = window.__dromeExtract.collect(document.body);
       const hiddenSubjects = [];
       const hiddenUnitEls = [];
@@ -77,7 +85,10 @@ try {
       });
 
       // body.innerText excludes display:none sections — a safe "visible" probe.
-      const after = norm(document.body.innerText);
+      const afterMedia = mediaEls
+        .filter((m) => !m.closest('.__drome_unsafe_hidden'))
+        .map(mediaOf).filter((t) => t.length >= 25).join(' ');
+      const after = norm(document.body.innerText + ' ' + afterMedia);
       const needleOf = (frag) => norm(frag).slice(0, 40);
       const remaining = labels.hide
         .map((frag) => ({ fragment: frag.slice(0, 60), visible: after.includes(needleOf(frag)) }))
@@ -88,6 +99,11 @@ try {
         for (const el of [...document.body.querySelectorAll('*')].reverse()) {
           if (!el.textContent || !norm(el.textContent).includes(needle)) continue;
           if (![...el.children].some((c) => norm(c.textContent || '').includes(needle))) return el;
+        }
+        // Attribute-borne text (img alt / video aria-label) is not in
+        // textContent — match those against media elements directly.
+        for (const m of mediaEls) {
+          if (mediaOf(m).includes(needle)) return m;
         }
         return null;
       };

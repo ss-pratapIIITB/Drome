@@ -70,8 +70,12 @@ struct AIReviewView: View {
                     .onChange(of: browserVM.aiRemoveUnsafe) { _, _ in
                         browserVM.applyAISettingsToCurrentPage()
                     }
+                Toggle("Show scan markers", isOn: $browserVM.aiShowScanMarkers)
+                    .onChange(of: browserVM.aiShowScanMarkers) { _, _ in
+                        browserVM.applyAISettingsToCurrentPage()
+                    }
             } footer: {
-                Text("Hiding is reversible and never reloads the page.")
+                Text("With markers off, flagged content simply disappears. Markers add the green/red debug boxes around every scanned block for review.")
             }
 
             Section {

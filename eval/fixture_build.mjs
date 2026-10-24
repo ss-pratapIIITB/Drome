@@ -75,6 +75,23 @@ const UNSAFE = {
       );
     },
   },
+  media: {
+    kind: 'explicit-media',
+    extra: [],
+    markup(head, body) {
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64">' +
+        '<rect width="96" height="64" fill="#8a2330"/></svg>';
+      const src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+      return (
+        `<figure style="${CARD_CSS}" data-fixture="synthetic-media">` +
+        `<img src="${src}" alt="${head}" width="96" height="64">` +
+        `<video aria-label="${body}" muted playsinline ` +
+        `style="width:96px;height:64px;background:#222"></video>` +
+        `</figure>`
+      );
+    },
+  },
 };
 
 // Injection positions per fixture: after-content selector style anchors.
@@ -91,6 +108,7 @@ const PLAN = {
   'aljazeera-article': [
     { anchor: 'main p', choose: 5, kind: 'gore', place: 'after-node' },
     { anchor: 'h2', choose: 3, kind: 'ad', place: 'after-unit' },
+    { anchor: 'main p', choose: 12, kind: 'media', place: 'after-node' },
   ],
 };
 
@@ -184,7 +202,7 @@ try {
     // Keep-list: texts of the page's own units that must survive removal.
     await page.addScriptTag({ path: path.join(here, '..', 'Drome', 'JavaScript', 'drome-extract.js') });
     const keeps = await page.evaluate(() => {
-      const synthetic = /DO NOT IGNORE|blood on the windshield|500,000 deaths|runs out 09:41|Open checkout now|Show replies|Replies hidden|Rate shock incoming|Read the warning before dinner|ad-urgency-bait|doom-finance|gore-comment|panic-health/;
+      const synthetic = /DO NOT IGNORE|blood on the windshield|500,000 deaths|runs out 09:41|Open checkout now|Show replies|Replies hidden|Rate shock incoming|Read the warning before dinner|ad-urgency-bait|doom-finance|gore-comment|panic-health|explicit-media/;
       const blocks = window.__dromeExtract.collect(document.body);
       const own = blocks.filter((b) => !synthetic.test(b.text));
       const picked = [own[0], own[1], own[2], own[Math.floor(own.length / 2)], own[own.length - 2], own[own.length - 1]];

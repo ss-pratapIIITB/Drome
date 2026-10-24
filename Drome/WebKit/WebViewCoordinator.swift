@@ -12,9 +12,11 @@ final class WebViewCoordinator: NSObject {
     private var isPageActive = false
     private var pageFinishedLoading = false
     private var hideUnsafe = false
+    private var showMarkers = false
     private var pageGeneration = 0
     private var lastFilteringEnabled: Bool?
     private var lastHideUnsafe: Bool?
+    private var lastShowMarkers: Bool?
     private var lastForceDarkMode: Bool?
     private var progressObservation: NSKeyValueObservation?
 
@@ -37,6 +39,7 @@ final class WebViewCoordinator: NSObject {
             self.updatePageActivity(
                 isActive: isActive,
                 filteringEnabled: self.browserVM?.aiFilterEnabled == true,
+                showMarkers: self.browserVM?.aiShowScanMarkers == true,
                 hideUnsafe: self.browserVM?.aiRemoveUnsafe == true,
                 webView: webView
             )
@@ -74,17 +77,25 @@ final class WebViewCoordinator: NSObject {
     func updatePageActivity(
         isActive: Bool,
         filteringEnabled: Bool,
+        showMarkers: Bool,
         hideUnsafe: Bool,
         webView: WKWebView
     ) {
         let becameActive = isActive && !isPageActive
         let wasFilteringEnabled = lastFilteringEnabled ?? false
         let hideChanged = lastHideUnsafe != hideUnsafe
+        let markersChanged = lastShowMarkers != showMarkers
 
         isPageActive = isActive
         self.hideUnsafe = hideUnsafe
+        self.showMarkers = showMarkers
         lastFilteringEnabled = filteringEnabled
         lastHideUnsafe = hideUnsafe
+        lastShowMarkers = showMarkers
+
+        if markersChanged {
+            webView.evaluateJavaScript(JavaScriptInjector.setMarkersJS(showMarkers), completionHandler: nil)
+        }
 
         if hideChanged {
             webView.evaluateJavaScript(JavaScriptInjector.setUnsafeHiddenJS(hideUnsafe), completionHandler: nil)
@@ -191,7 +202,7 @@ final class WebViewCoordinator: NSObject {
 
         while isSessionCurrent(sessionID), !Task.isCancelled {
             guard let batch = pageSession?.dequeueBatch(limit: scanBatchSize), !batch.isEmpty else { break }
-            webView.evaluateJavaScript(JavaScriptInjector.markAllPendingJS(candidates: batch), completionHandler: nil)
+            webView.evaluateJavaScript(JavaScriptInjector.markAllPendingJS(candidates: batch, showMarkers: showMarkers), completionHandler: nil)
 
             let results = await aiFilter?.classifyBatch(
                 texts: batch.map(\.text),
@@ -369,6 +380,7 @@ extension WebViewCoordinator: WKNavigationDelegate {
            browserVM?.currentTab?.id == tab?.id {
             isPageActive = true
             hideUnsafe = browserVM?.aiRemoveUnsafe == true
+            showMarkers = browserVM?.aiShowScanMarkers == true
             beginPageScan(webView: webView)
         }
     }
@@ -581,6 +593,11 @@ extension WebViewCoordinator: WKScriptMessageHandler {
         if pageSession?.enqueue(candidate) == true {
             devToolsVM?.aiTotalCount += 1
             startMutationDrainIfNeeded(webView: webView)
+        } else if pageSession == nil || pageSession?.isCancelled == true {
+            // Diagnostic visibility for a dead mutation feed: tell silent
+            // drops (dedup drops stay quiet — they are normal) apart from a
+            // starving scan so infinite-scroll gaps are explainable.
+            log("⚠️ Mutation candidate dropped: no active scan session — id=\(candidate.id), text=\"\(candidate.text.prefix(40))\"")
         }
     }
 

@@ -28,6 +28,10 @@ final class BrowserViewModel: ObservableObject {
     @AppStorage("blockPopups") var blockPopups = true
     @AppStorage("aiRemoveUnsafe") var aiRemoveUnsafe = false
 
+    /// Debug boxes around every scanned block. Default OFF: unsafe content
+    /// simply disappears, markers are opt-in for review.
+    @AppStorage("aiShowScanMarkers") var aiShowScanMarkers = false
+
     // Per-session state (resets on relaunch)
     @Published var readingModeActive = false
 
@@ -146,6 +150,7 @@ final class BrowserViewModel: ObservableObject {
         coordinator.updatePageActivity(
             isActive: true,
             filteringEnabled: aiFilterEnabled,
+            showMarkers: aiShowScanMarkers,
             hideUnsafe: aiRemoveUnsafe,
             webView: webView
         )

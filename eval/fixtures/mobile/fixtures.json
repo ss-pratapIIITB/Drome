@@ -16,9 +16,9 @@
       "All the news you need to keep up with the latest development",
       "Meta is acquiring an AI analytics company.",
       "Axios has the story. The company, Sundial, was founded by tw",
-      "According to a user on Reddit, “Had my iPhone Duo for about ",
-      "Now Google says it might use your Gmail and Google Photos da",
-      "The first broken iPhone Duos are here"
+      "How Claude Fable 5.1 can encode — and decode —messages in im",
+      "Intel just got a temporary waiver from the foreign robot ban",
+      "And no, you haven’t forgotten about a line of Intel-made Roo"
     ]
   },
   "bbc-article": {
@@ -47,7 +47,9 @@
       "hidden by moderators on desktop",
       "ad-urgency-bait:: h2 3 — DO NOT IGNORE",
       "ad-urgency-bait body line with specifics: runs out 09:41 tonight, 500,000 deaths, blood on the windshield.",
-      "Open checkout now"
+      "Open checkout now",
+      "explicit-media:: main p 12 — DO NOT IGNORE",
+      "explicit-media body line with specifics: runs out 09:41 tonight, 500,000 deaths, blood on the windshield."
     ],
     "keep": [
       "European, Middle East ministers urge US-Iran diplomacy, not ",

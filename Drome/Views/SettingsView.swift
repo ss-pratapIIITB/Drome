@@ -29,6 +29,14 @@ struct SettingsView: View {
                             browserVM.applyAISettingsToCurrentPage()
                         }
 
+                        Toggle(isOn: $browserVM.aiShowScanMarkers) {
+                            Label("Show Scan Markers", systemImage: "text.badge.checkmark")
+                        }
+                        .padding(.leading, 24)
+                        .onChange(of: browserVM.aiShowScanMarkers) { _, _ in
+                            browserVM.applyAISettingsToCurrentPage()
+                        }
+
                         NavigationLink {
                             LayaMLXSettingsView()
                         } label: {

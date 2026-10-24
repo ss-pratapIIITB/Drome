@@ -135,14 +135,17 @@ enum JavaScriptInjector {
         [data-drome-safe="0"]::before       { background: rgba(220,38,38,0.88)  !important; }
     """
 
-    /// Phase 1 — mark ALL candidate xpaths as pending (blue) in one JS call
-    static func markAllPendingJS(candidates: [PageScanCandidate]) -> String {
+    /// Phase 1 — mark ALL candidate xpaths as pending (blue) in one JS call.
+    /// When `showMarkers` is off the shared chip/outline CSS is not injected
+    /// and pending decoration is skipped: flagged blocks later go straight to
+    /// silent hiding (`__drome_unsafe_hidden`) with no visible boxes.
+    static func markAllPendingJS(candidates: [PageScanCandidate], showMarkers: Bool) -> String {
         let payload = candidates.map { ["xpath": $0.xpath, "fingerprint": $0.fingerprint] }
         let json = (try? String(data: JSONSerialization.data(withJSONObject: payload), encoding: .utf8)) ?? "[]"
         let css = aiLabelCSS.replacingOccurrences(of: "`", with: "\\`")
         return """
         (function() {
-            if (!document.getElementById('__drome_ai_style')) {
+            if (\(showMarkers) && !document.getElementById('__drome_ai_style')) {
                 const s = document.createElement('style');
                 s.id = '__drome_ai_style';
                 s.textContent = `\(css)`;
@@ -155,13 +158,37 @@ enum JavaScriptInjector {
                         XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                     const el = res.singleNodeValue;
                     if (!el) return;
-                    if (el.hasAttribute('data-drome-safe')
-                        && el.getAttribute('data-drome-fingerprint') === candidate.fingerprint) return;
+                    const known = el.hasAttribute('data-drome-safe')
+                        && el.getAttribute('data-drome-fingerprint') === candidate.fingerprint;
+                    if (known) return;
+                    // New or changed content: un-hide until it is classified again.
                     el.classList.remove('__drome_unsafe_hidden');
+                    if (!\(showMarkers)) return;
                     el.setAttribute('data-drome-safe', 'pending');
                     el.setAttribute('data-drome-label', '⏳');
                 } catch(e) {}
             });
+        })();
+        """
+    }
+
+    /// Toggles the visible scan-marker CSS (outlines + label chips). The
+    /// `data-drome-safe` attributes stay on elements either way — hiding and
+    /// re-hiding logic never depends on the markers being visible.
+    static func setMarkersJS(_ show: Bool) -> String {
+        let css = aiLabelCSS.replacingOccurrences(of: "`", with: "\\`")
+        return """
+        (function() {
+            const style = document.getElementById('__drome_ai_style');
+            if (\(show)) {
+                if (style) return;
+                const s = document.createElement('style');
+                s.id = '__drome_ai_style';
+                s.textContent = `\(css)`;
+                document.head.appendChild(s);
+            } else if (style) {
+                style.remove();
+            }
         })();
         """
     }
