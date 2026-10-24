@@ -183,9 +183,55 @@
     const SECTION_RIDE_ALONG = 120;      // max length of a sibling caption absorbed with the unit
     const SECTION_TEXT_GROWTH = 1.6;     // fallback: climb while ancestor adds little text
     const SECTION_MIN_CARD_CHARS = 40;   // too small a subtree: don't look for bigger units
+    const SECTION_MAX_DEPTH = 24;        // safety cap on climb depth
+    const MEASURE_CAP = 1020;            // walker stops once a subtree is provably over any threshold
+    const MEASURE_NODE_CAP = 6000;       // hard bound on nodes visited per measurement
+    const MEASURE_SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEXTAREA', 'TEMPLATE']);
+
+    // Memoized, whitespace-collapsed subtree text length. Walks TEXT nodes only
+    // (their .data already exists — no string materialization), stops at the cap:
+    // everything >= the cap is over SECTION_MAX_CARD_CHARS anyway, so larger
+    // values cannot change any climb decision. Memo entries live as long as the
+    // node does (WeakMap), so repeated climbs over shared chains cost nothing.
+    const textLenCache = new WeakMap();
 
     function textLength(el) {
-        return normalize(el.textContent || '').length;
+        const hit = textLenCache.get(el);
+        if (hit !== undefined) return hit;
+        let len = 0;
+        let visited = 0;
+        try {
+            const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+                acceptNode(node) {
+                    const owner = node.parentElement;
+                    return owner && !MEASURE_SKIP_TAGS.has(owner.tagName)
+                        ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+                }
+            });
+            let text;
+            let inSpaceRun = true; // leading spaces collapse
+            while ((text = walker.nextNode())) {
+                if (++visited > MEASURE_NODE_CAP) { len = MEASURE_CAP; break; }
+                const data = text.data;
+                for (let i = 0; i < data.length; i++) {
+                    const code = data.charCodeAt(i);
+                    const isSpace = code === 32 || (code >= 9 && code <= 13) ||
+                        (code >= 0x2000 && code <= 0x200A) || code === 0xA0 ||
+                        code === 0x202F || code === 0x205F || code === 0x3000;
+                    if (isSpace) {
+                        if (!inSpaceRun) { len++; inSpaceRun = true; }
+                    } else {
+                        len++; inSpaceRun = false;
+                    }
+                    if (len >= MEASURE_CAP) { len = MEASURE_CAP; break; }
+                }
+                if (len >= MEASURE_CAP) break;
+            }
+        } catch (e) {
+            len = MEASURE_CAP;
+        }
+        textLenCache.set(el, len);
+        return len;
     }
 
     function repeatedUnit(el) {
@@ -222,7 +268,9 @@
     function resolveSection(leaf) {
         if (!leaf || leaf === document.body) return leaf;
         let current = leaf;
-        while (current.parentElement && current.parentElement !== document.body) {
+        let depth = 0;
+        while (current.parentElement && current.parentElement !== document.body && depth < SECTION_MAX_DEPTH) {
+            depth++;
             const parent = current.parentElement;
             if (SECTION_BROAD.has(parent.tagName)) break;
             const role = parent.getAttribute('role');

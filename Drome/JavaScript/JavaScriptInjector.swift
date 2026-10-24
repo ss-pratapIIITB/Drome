@@ -84,6 +84,7 @@ enum JavaScriptInjector {
             }
             document.querySelectorAll('[data-drome-safe="0"]').forEach(el => {
                 el.classList.add(className);
+                if (el.parentElement && el.parentElement.closest('.' + className)) return;
                 if (window.__dromeExtract && window.__dromeExtract.resolveSection) {
                     const section = window.__dromeExtract.resolveSection(el);
                     if (section && section !== document.body) {
@@ -233,7 +234,10 @@ enum JavaScriptInjector {
                     el.setAttribute('data-drome-fingerprint', update.fingerprint);
                     if (update.hideUnsafe && !update.safe) {
                         el.classList.add('__drome_unsafe_hidden');
-                        if (window.__dromeExtract && window.__dromeExtract.resolveSection) {
+                        // Skip resolution when an ancestor unit is already hidden:
+                        // the parent covers this leaf, resolving again is wasted work.
+                        const covered = el.parentElement && el.parentElement.closest('.__drome_unsafe_hidden');
+                        if (!covered && window.__dromeExtract && window.__dromeExtract.resolveSection) {
                             const section = window.__dromeExtract.resolveSection(el);
                             if (section && section !== document.body) {
                                 section.classList.add('__drome_unsafe_hidden');

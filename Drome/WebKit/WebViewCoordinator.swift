@@ -123,6 +123,10 @@ final class WebViewCoordinator: NSObject {
         if browserVM?.currentTab?.id == tab?.id {
             devToolsVM?.clearAIResults()
         }
+        // A scan drainer that exits because its session was replaced never
+        // reaches finishScanTask; without clearing here the status bar stays
+        // "Analyzing N/M blocks" forever — the reported stuck state.
+        devToolsVM?.aiIsAnalyzing = false
     }
 
     private func beginPageScan(webView: WKWebView) {
