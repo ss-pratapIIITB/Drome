@@ -73,7 +73,7 @@ See [`docs/laya-mlx-swift.md`](docs/laya-mlx-swift.md) for the model port, runti
 
 ## How the filter works
 
-1. `drome-extract.js` walks visible block elements, keeps leaf text blocks, drops navigation/footer/code/high-link-density noise, and deduplicates repeated text.
+1. `drome-extract.js` walks visible block elements, keeps leaf text blocks, drops navigation/footer/code/high-link-density noise, and deduplicates repeated text. Images and videos with descriptive `alt` / `aria-label` / `title` text become blocks of their own.
 2. Qualifying blocks are queued in `PageScanSession` with a stable ID and content fingerprint.
 3. A keyword guard handles short blocks and provides a fallback if the model cannot load.
 4. Laya evaluates a batch of blocks with the unsafe question; the category question runs only for blocks that cross the threshold.
@@ -112,11 +112,28 @@ To produce an unsigned IPA:
 
 ## Testing
 
+Two layers, both runnable locally.
+
+**Swift unit and UI tests**
+
 ```bash
 ./scripts/run-tests.sh
 ```
 
-The suite covers page-scan cancellation and deduplication, JavaScript injection contracts, and the keyword/fallback path of the content filter. CI builds every pull request and runs the tests on an iOS simulator.
+The suite covers page-scan cancellation and deduplication, JavaScript-injection contracts, and the keyword/fallback path of the content filter. CI builds every pull request and runs the tests on an iOS simulator.
+
+**Removal-quality evaluation (`eval/`)**
+
+A local harness that measures what actually disappears from a page, not just what the classifier said:
+
+- Real mobile pages (BBC article, Verge feed, Al Jazeera article) are captured with an iPhone user agent into `eval/fixtures/mobile/`.
+- Synthetic unsafe units (ad urgency, doom finance, gore comment, panic health, explicit media with alt/aria-label text) are cloned into each page's own card/paragraph structure (`eval/fixture_build.mjs`), with ground truth in `fixtures.json`.
+- `eval/run_removal_eval.py` extracts blocks with the shipped `drome-extract.js`, resolves each flagged block to its hiding unit, applies the hides, and reports:
+  - `removedAll` — every unsafe fragment is hidden,
+  - `noCollateral` — no benign page text disappeared,
+  - `cascade-covered` — hides that removed more than the flagged leaf.
+
+`--skip-laya` uses hand labels instead of the model, separating extraction/hiding bugs from classifier verdicts; the full run drives the real Laya MLX classifier on a saved fixture. Reports land in `eval/reports/` (gitignored), and `node eval/extract_blocks.mjs` re-runs a single page. See [`eval/README.md`](eval/README.md) for the fixture pipeline, label format, and command reference.
 
 ## Performance
 
@@ -129,7 +146,7 @@ The suite covers page-scan cancellation and deduplication, JavaScript injection 
 - After the first model download, page text is classified on-device and is never uploaded by the app.
 - The model is a research artifact, not a clinical or child-safety guarantee. False positives and false negatives are expected.
 - The filter is on by default and can be disabled in Settings → Privacy.
-- Only visible, qualifying text blocks are scanned; images, video, and canvas content are out of scope.
+- Only visible content is scanned: qualifying text blocks, plus images and videos that carry descriptive `alt` / `aria-label` / `title` text. Canvas and media without descriptive text are not inspected.
 - The Laya MLX checkpoint is downloaded from Hugging Face at runtime and its metadata lists Apache-2.0. Review the model card before redistribution.
 
 ## License
