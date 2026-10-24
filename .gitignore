@@ -11,3 +11,6 @@ __pycache__/
 *.py[cod]
 
 eval/node_modules/
+eval/reports/
+eval/fixtures/mobile/.orig/
+eval/fixtures/mobile/*-preview.png

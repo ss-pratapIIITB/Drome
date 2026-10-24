@@ -49,7 +49,14 @@ enum JavaScriptInjector {
                     const result = document.evaluate(xpath, document, null,
                         XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                     const el = result.singleNodeValue;
-                    if (el) el.classList.add('__drome_unsafe_hidden');
+                    if (!el) return;
+                    el.classList.add('__drome_unsafe_hidden');
+                    if (window.__dromeExtract && window.__dromeExtract.resolveSection) {
+                        const section = window.__dromeExtract.resolveSection(el);
+                        if (section && section !== document.body) {
+                            section.classList.add('__drome_unsafe_hidden');
+                        }
+                    }
                 } catch(e) {}
             });
         })();
@@ -67,8 +74,22 @@ enum JavaScriptInjector {
                 style.textContent = '.' + className + ' { display: none !important; }';
                 document.head.appendChild(style);
             }
+            if (!\(hidden)) {
+                // Restore removes the class everywhere: flagged leaves and the
+                // sections they resolved to are both tagged with the class.
+                document.querySelectorAll('.' + className).forEach(el => {
+                    el.classList.remove(className);
+                });
+                return;
+            }
             document.querySelectorAll('[data-drome-safe="0"]').forEach(el => {
-                el.classList.\(hidden ? "add" : "remove")(className);
+                el.classList.add(className);
+                if (window.__dromeExtract && window.__dromeExtract.resolveSection) {
+                    const section = window.__dromeExtract.resolveSection(el);
+                    if (section && section !== document.body) {
+                        section.classList.add(className);
+                    }
+                }
             });
         })();
         """
@@ -166,6 +187,12 @@ enum JavaScriptInjector {
                 el.setAttribute('data-drome-reason', '\(esc(reason))');
                 el.setAttribute('data-drome-fingerprint', '\(esc(candidate.fingerprint))');
                 el.classList.\(!isSafe && hideUnsafe ? "add" : "remove")('__drome_unsafe_hidden');
+                if (!isSafe && hideUnsafe && window.__dromeExtract && window.__dromeExtract.resolveSection) {
+                    const section = window.__dromeExtract.resolveSection(el);
+                    if (section && section !== document.body) {
+                        section.classList.add('__drome_unsafe_hidden');
+                    }
+                }
             } catch(e) {}
         })();
         """
@@ -204,7 +231,17 @@ enum JavaScriptInjector {
                     el.setAttribute('data-drome-label', update.safe ? '✓ Safe' : '⚠ Unsafe');
                     el.setAttribute('data-drome-reason', update.reason);
                     el.setAttribute('data-drome-fingerprint', update.fingerprint);
-                    el.classList[update.hideUnsafe && !update.safe ? 'add' : 'remove']('__drome_unsafe_hidden');
+                    if (update.hideUnsafe && !update.safe) {
+                        el.classList.add('__drome_unsafe_hidden');
+                        if (window.__dromeExtract && window.__dromeExtract.resolveSection) {
+                            const section = window.__dromeExtract.resolveSection(el);
+                            if (section && section !== document.body) {
+                                section.classList.add('__drome_unsafe_hidden');
+                            }
+                        }
+                    } else {
+                        el.classList.remove('__drome_unsafe_hidden');
+                    }
                 } catch(e) {}
             });
         })();
@@ -351,6 +388,9 @@ enum JavaScriptInjector {
                 el.removeAttribute('data-drome-label');
                 el.removeAttribute('data-drome-reason');
                 el.removeAttribute('data-drome-fingerprint');
+                el.classList.remove('__drome_unsafe_hidden');
+            });
+            document.querySelectorAll('.__drome_unsafe_hidden').forEach(el => {
                 el.classList.remove('__drome_unsafe_hidden');
             });
             document.getElementById('__drome_ai_style')?.remove();

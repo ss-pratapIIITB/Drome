@@ -1,0 +1,61 @@
+{
+  "verge-feed": {
+    "hide": [
+      "ad-urgency-bait:: h2 2 — DO NOT IGNORE",
+      "ad-urgency-bait body line with specifics: runs out 09:41 tonight, 500,000 deaths, blood on the windshield.",
+      "Open checkout now",
+      "doom-finance:: h2 7 — DO NOT IGNORE",
+      "doom-finance body line with specifics: runs out 09:41 tonight, 500,000 deaths, blood on the windshield.",
+      "Rate shock incoming — analysts:",
+      "gore-comment:: h2 18 — DO NOT IGNORE",
+      "gore-comment body line with specifics: runs out 09:41 tonight, 500,000 deaths, blood on the windshield.",
+      "Show replies",
+      "hidden by moderators on desktop"
+    ],
+    "keep": [
+      "All the news you need to keep up with the latest development",
+      "Meta is acquiring an AI analytics company.",
+      "Axios has the story. The company, Sundial, was founded by tw",
+      "According to a user on Reddit, “Had my iPhone Duo for about ",
+      "Now Google says it might use your Gmail and Google Photos da",
+      "The first broken iPhone Duos are here"
+    ]
+  },
+  "bbc-article": {
+    "hide": [
+      "panic-health:: main p 4 — DO NOT IGNORE",
+      "panic-health body line with specifics: runs out 09:41 tonight, 500,000 deaths, blood on the windshield.",
+      "Read the warning before dinner",
+      "doom-finance:: main p 9 — DO NOT IGNORE",
+      "doom-finance body line with specifics: runs out 09:41 tonight, 500,000 deaths, blood on the windshield.",
+      "Rate shock incoming — analysts:"
+    ],
+    "keep": [
+      "Deadly shooting near Paris is a 'racist terrorist attack', M",
+      "Paul Kirby,Europe digital editorand",
+      "Watch: Emergency services at the scene of shooting near Pari",
+      "French firefighters and police were seen at a petrol station",
+      "Cosy luxury: The best suede and shearling bags to add to you",
+      "Discover the chicest suede and shearling bags from luxury ho"
+    ]
+  },
+  "aljazeera-article": {
+    "hide": [
+      "gore-comment:: main p 5 — DO NOT IGNORE",
+      "gore-comment body line with specifics: runs out 09:41 tonight, 500,000 deaths, blood on the windshield.",
+      "Show replies",
+      "hidden by moderators on desktop",
+      "ad-urgency-bait:: h2 3 — DO NOT IGNORE",
+      "ad-urgency-bait body line with specifics: runs out 09:41 tonight, 500,000 deaths, blood on the windshield.",
+      "Open checkout now"
+    ],
+    "keep": [
+      "European, Middle East ministers urge US-Iran diplomacy, not ",
+      "An escalation would ‘create nothing but losers’, French fore",
+      "German Foreign Minister Johann Wadephul, British Foreign Sec",
+      "Video Duration 01 minutes 05 seconds 01:05",
+      "We use cookies and other tracking technologies to deliver an",
+      "Cookie preferences Allow all"
+    ]
+  }
+}

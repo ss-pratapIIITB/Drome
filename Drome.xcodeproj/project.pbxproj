@@ -328,16 +328,16 @@
 				LastUpgradeCheck = 2650;
 				TargetAttributes = {
 					6C4A8DC8E26D0E2A15186A88 = {
-						DevelopmentTeam = PAZR439BX6;
+						DevelopmentTeam = 25NGZ7HS2D;
 						ProvisioningStyle = Automatic;
 						TestTargetID = EE75DD6986B511121D1CEB08;
 					};
 					95B2AE3E93D6060F52126B53 = {
-						DevelopmentTeam = PAZR439BX6;
+						DevelopmentTeam = 25NGZ7HS2D;
 						ProvisioningStyle = Automatic;
 					};
 					EE75DD6986B511121D1CEB08 = {
-						DevelopmentTeam = PAZR439BX6;
+						DevelopmentTeam = 25NGZ7HS2D;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -522,7 +522,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = PAZR439BX6;
+				DEVELOPMENT_TEAM = 25NGZ7HS2D;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -610,7 +610,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = PAZR439BX6;
+				DEVELOPMENT_TEAM = 25NGZ7HS2D;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -661,7 +661,7 @@
 				CODE_SIGN_ENTITLEMENTS = Drome/Drome.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = PAZR439BX6;
+				DEVELOPMENT_TEAM = 25NGZ7HS2D;
 				INFOPLIST_FILE = Drome/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -681,7 +681,7 @@
 				CODE_SIGN_ENTITLEMENTS = Drome/Drome.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = PAZR439BX6;
+				DEVELOPMENT_TEAM = 25NGZ7HS2D;
 				INFOPLIST_FILE = Drome/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (

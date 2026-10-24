@@ -27,6 +27,30 @@ python3 eval/analyze_rules.py            # compare NLI / category / hybrid rules
 node eval/extract_blocks.mjs --html eval/fixtures/extract-test.html
 ```
 
+## Section-removal eval (mobile fixtures)
+
+Real mobile pages (BBC article, Verge feed, Al Jazeera article) are saved with
+an iPhone user agent (`eval/save_fixture.mjs`), then synthetic unsafe units
+(ad urgency, doom finance, gore comments, panic health) are cloned into each
+page's own card/paragraph structure (`eval/fixture_build.mjs`) with ground
+truth in `fixtures/mobile/fixtures.json`.
+
+```bash
+node eval/fixture_build.mjs                        # rebuild fixtures + ground truth
+python3 eval/run_removal_eval.py --skip-laya       # remove with hand labels
+python3 eval/run_removal_eval.py                   # classify with Laya, then remove
+```
+
+Each fixture scores two booleans:
+
+- `removedAll` — no unsafe unit's text is visible after hiding
+- `noCollateral` — nothing visible before hiding ended up hidden beyond the
+  flagged unit (cascade-hidden text inside a flagged unit is reported
+  separately as `cascade-covered`)
+
+The same `resolveSection()` in `drome-extract.js` powers the app and this
+eval, unit-level hiding of flagged sections was tuned on these fixtures.
+
 `run_eval.py` writes `results/prompt_eval.json`; `analyze_rules.py` writes
 `results/decision_rules.json`. The model is `aac6fef/laya-mlx`; the first run
 downloads about 843 MB.

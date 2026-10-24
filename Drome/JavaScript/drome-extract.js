@@ -157,6 +157,94 @@
     global.__dromeExtract = {
         collect: collect,
         normalize: normalize,
-        fingerprint: fingerprint
+        fingerprint: fingerprint,
+        resolveSection: resolveSection
     };
+
+    // ── Section resolution ──────────────────────────────────────────────────
+    // Given a leaf block flagged as unsafe, find the smallest ancestor that
+    // represents the whole section (card, comment, ad unit) so hiding removes
+    // the complete unit instead of only one leaf inside it.
+    //
+    // A step from the current subtree to its parent is allowed when PARENT
+    // wraps exactly ONE unit's worth of content:
+    //   - at most 6 element children (deep banner wrappers are absorbed),
+    //   - and no OTHER content child of its own (>=120 chars) besides the
+    //     subtree being absorbed — captions and short labels may ride along.
+    // This refuses feed lists (many cards), article flow (many paragraphs)
+    // and dialog wrappers that host unrelated content, so hiding never
+    // swallows unrelated sections.
+    const SECTION_BROAD = new Set([
+        'BODY', 'HTML', 'MAIN', 'ARTICLE', 'SECTION', 'FORM', 'UL', 'OL',
+        'TABLE', 'TD', 'TR', 'THEAD', 'TBODY', 'HEADER'
+    ]);
+    const SECTION_MAX_CARD_CHARS = 900;  // a unit cannot wrap more text than this
+    const SECTION_UNIT_CHILDREN = 6;     // max element children of a unit-wrapping parent
+    const SECTION_RIDE_ALONG = 120;      // max length of a sibling caption absorbed with the unit
+    const SECTION_TEXT_GROWTH = 1.6;     // fallback: climb while ancestor adds little text
+    const SECTION_MIN_CARD_CHARS = 40;   // too small a subtree: don't look for bigger units
+
+    function textLength(el) {
+        return normalize(el.textContent || '').length;
+    }
+
+    function repeatedUnit(el) {
+        // True when a sibling shares the structural signature (a list of
+        // near-identical cards): the flagged unit is `el` itself.
+        if (!el || !el.parentElement) return false;
+        const parent = el.parentElement;
+        const sig = childSignature(el);
+        for (let i = 0; i < parent.children.length; i++) {
+            const sib = parent.children[i];
+            if (sib !== el && childSignature(sib) === sig) return true;
+        }
+        return false;
+    }
+
+    function childSignature(child) {
+        // Cheap structural signature: tag + class tokens + text-size bucket.
+        const classes = (child.getAttribute && (child.getAttribute('class') || '')) || '';
+        return child.tagName + '|' + classes.split(/\s+/).filter(Boolean).length + '|' +
+            Math.round(textLength(child) / 50);
+    }
+
+    function largestOtherContentChild(parent, current) {
+        let largest = 0;
+        for (let i = 0; i < parent.children.length; i++) {
+            const child = parent.children[i];
+            if (child === current) continue;
+            const len = textLength(child);
+            if (len >= 40 && len > largest) largest = len;
+        }
+        return largest;
+    }
+
+    function resolveSection(leaf) {
+        if (!leaf || leaf === document.body) return leaf;
+        let current = leaf;
+        while (current.parentElement && current.parentElement !== document.body) {
+            const parent = current.parentElement;
+            if (SECTION_BROAD.has(parent.tagName)) break;
+            const role = parent.getAttribute('role');
+            if (role === 'main' || role === 'contentinfo' || role === 'list') break;
+            if (repeatedUnit(current)) break;
+
+            const parentLen = textLength(parent);
+            const currentLen = textLength(current);
+            if (currentLen < SECTION_MIN_CARD_CHARS) break;
+
+            // The parent must still be a UNIT's worth of content.
+            const otherChildren = largestOtherContentChild(parent, current);
+            const isUnitParent = parent.childElementCount <= SECTION_UNIT_CHILDREN &&
+                otherChildren <= SECTION_RIDE_ALONG;
+            const isLowGrowthParent = (parentLen - currentLen) <= SECTION_MAX_CARD_CHARS &&
+                (parentLen / Math.max(currentLen, 1)) <= SECTION_TEXT_GROWTH;
+
+            if (!isUnitParent && !isLowGrowthParent) break;
+            if (textLength(parent) > SECTION_MAX_CARD_CHARS &&
+                !isLowGrowthParent) break;
+            current = parent;
+        }
+        return current;
+    }
 })(window);

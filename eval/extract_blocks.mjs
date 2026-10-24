@@ -22,6 +22,7 @@ const url = arg('--url');
 const htmlPath = arg('--html');
 const outPath = arg('--out');
 const timeout = Number(arg('--timeout', '30000'));
+const hideFile = arg('--hide');
 
 if (!url && !htmlPath) {
   console.error('Pass --url <url> or --html <file>');
@@ -29,7 +30,7 @@ if (!url && !htmlPath) {
 }
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true });
-const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+const page = await browser.newPage({ viewport: { width: 430, height: 932 }, isMobile: true, hasTouch: true });
 
 try {
   if (url) {
@@ -41,16 +42,115 @@ try {
 
   await page.addScriptTag({ path: helper });
   const blocks = await page.evaluate(() => window.__dromeExtract.collect(document.body));
-  const unique = new Set(blocks.map((block) => block.text)).size;
 
-  console.log(`blocks=${blocks.length} unique=${unique}`);
-  for (const block of blocks.slice(0, 12)) {
-    console.log(`- [${block.id}] ${block.text.slice(0, 110)}`);
-  }
+  if (hideFile) {
+    const ground = JSON.parse(fs.readFileSync(path.resolve(hideFile), 'utf8'));
+    const fixtureName = path.basename(htmlPath, '.html');
+    // Accept both shapes: fixture-keyed (fixtures.json) and flat per-fixture labels
+    let labels = ground[fixtureName];
+    if (!labels && Array.isArray(ground.hide)) labels = ground;
+    if (!labels) labels = { hide: [], keep: [] };
+    const report = await page.evaluate((labels) => {
+      // Mirror the app's hide path exactly: CSS class on the main-flagged leaf,
+      // plus __drome_unsafe_hidden on the resolved section.
+      const norm = (s) => s.replace(/\s+/g, ' ');
+      const style = document.createElement('style');
+      style.textContent = '.__drome_unsafe_hidden { display: none !important; }';
+      document.head.appendChild(style);
 
-  if (outPath) {
-    fs.writeFileSync(outPath, JSON.stringify(blocks, null, 2) + '\n');
-    console.log(`wrote ${outPath}`);
+      const before = norm(document.body.innerText);
+      const blocks = window.__dromeExtract.collect(document.body);
+      const hiddenSubjects = [];
+      const hiddenUnitEls = [];
+
+      blocks.forEach((block) => {
+        if (!labels.hide.some((frag) => norm(block.text).includes(norm(frag).slice(0, 40)))) return;
+        try {
+          const res = document.evaluate(block.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+          const el = res.singleNodeValue;
+          if (!el) return;
+          const section = window.__dromeExtract.resolveSection(el);
+          hiddenSubjects.push(section ? section.tagName + '.' + String(section.className).slice(0, 48) : 'LEAF ' + block.id);
+          (section || el).classList.add('__drome_unsafe_hidden');
+          if (section) hiddenUnitEls.push(section);
+        } catch (e) {}
+      });
+
+      // body.innerText excludes display:none sections — a safe "visible" probe.
+      const after = norm(document.body.innerText);
+      const needleOf = (frag) => norm(frag).slice(0, 40);
+      const remaining = labels.hide
+        .map((frag) => ({ fragment: frag.slice(0, 60), visible: after.includes(needleOf(frag)) }))
+        .filter((r) => r.visible);
+
+      // deepest element containing the fragment
+      const ownerOf = (needle) => {
+        for (const el of [...document.body.querySelectorAll('*')].reverse()) {
+          if (!el.textContent || !norm(el.textContent).includes(needle)) continue;
+          if (![...el.children].some((c) => norm(c.textContent || '').includes(needle))) return el;
+        }
+        return null;
+      };
+      // the resolved unit that envelops an element, if hidden
+      const unitOf = (el) => {
+        for (let n = el; n && n !== document.body; n = n.parentElement) {
+          if (hiddenUnitEls.includes(n)) return n;
+        }
+        return null;
+      };
+
+      // keep fragments that disappeared: 'cascade' (same resolved unit as an
+      // explicit flag), 'classifier-fp' (the unit is unflagged but hidden), or
+      // 'outside-resolved-units' (hidden content outside any resolved unit)
+      const whyHidden = labels.keep
+        .map((frag) => {
+          const needle = needleOf(frag);
+          if (!before.includes(needle) || after.includes(needle)) return null;
+          const owner = ownerOf(needle);
+          const unitEl = owner ? unitOf(owner) : null;
+          if (!unitEl) return { fragment: frag.slice(0, 60), kind: 'outside-resolved-units' };
+          const cascade = blocks.some((b) => {
+            if (!labels.hide.some((hf) => norm(b.text).includes(norm(hf).slice(0, 40)))) return false;
+            try {
+              const res = document.evaluate(b.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+              return res.singleNodeValue ? unitOf(res.singleNodeValue) === unitEl : false;
+            } catch (e) { return false; }
+          });
+          return { fragment: frag.slice(0, 60), kind: cascade ? 'cascade' : 'classifier-fp' };
+        })
+        .filter(Boolean);
+      const collateral = whyHidden.filter((c) => c.kind !== 'cascade');
+      return {
+        blocks: blocks.length,
+        labelsSeen: Array.isArray(labels.hide) ? labels.hide.length : -1,
+        hiddenSubjects,
+        remainingVisible: remaining,
+        collateralHidden: collateral,
+        cascadeHidden: whyHidden.length - collateral.length,
+      };
+    }, labels);
+
+    const removedAll = report.remainingVisible.length === 0;
+    const noCollateral = report.collateralHidden.length === 0;
+    console.log(
+      `${fixtureName}: blocks=${report.blocks} resolvedUnits=${report.hiddenSubjects.length} removedAll=${removedAll} noCollateral=${noCollateral}`
+    );
+    for (const r of report.remainingVisible) console.log(`  ✗ STILL VISIBLE: ${r.fragment}…`);
+    for (const c of report.collateralHidden) console.log(`  ✗ WRONGLY HIDDEN: ${c.fragment}…`);
+    if (!removedAll || !noCollateral) console.log(`  resolved to: ${report.hiddenSubjects.join(' | ')}`);
+    if (outPath) fs.writeFileSync(outPath, JSON.stringify(report, null, 2) + '\n');
+  } else {
+    const unique = new Set(blocks.map((block) => block.text)).size;
+
+    console.log(`blocks=${blocks.length} unique=${unique}`);
+    for (const block of blocks.slice(0, 12)) {
+      console.log(`- [${block.id}] ${block.text.slice(0, 110)}`);
+    }
+
+    if (outPath) {
+      fs.writeFileSync(outPath, JSON.stringify(blocks, null, 2) + '\n');
+      console.log(`wrote ${outPath}`);
+    }
   }
 } finally {
   await browser.close();

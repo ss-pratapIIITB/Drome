@@ -5,7 +5,10 @@
   "description": "Local evaluation harness for Drome's on-device content filter",
   "scripts": {
     "extract": "node extract_blocks.mjs",
-    "audit": "node extract_blocks.mjs --audit"
+    "audit": "node extract_blocks.mjs --audit",
+    "fixtures:save": "node save_fixture.mjs",
+    "fixtures:build": "node fixture_build.mjs",
+    "removal": "python3 run_removal_eval.py"
   },
   "dependencies": {
     "playwright-core": "^1.55.0"
