@@ -30,6 +30,11 @@
     // any text block. Media without descriptive text stays untouched.
     const MEDIA_TAGS = new Set(['IMG', 'VIDEO']);
 
+    // Explicit terms that make even a very short alt text worth classifying.
+    // Most explicit images carry no descriptive alt at all, but when they do
+    // it is often two or three words ("nude models").
+    const ADULT_HINT = /\b(porn|nude|naked|nsfw|xxx|onlyfans|erotic|sex\s*tape)\b/i;
+
     function mediaTextOf(el) {
         let text = (el.getAttribute && el.getAttribute('alt')) || '';
         if (!text) text = (el.getAttribute && el.getAttribute('aria-label')) || '';
@@ -39,7 +44,8 @@
 
     function hasMediaText(el) {
         const text = mediaTextOf(el);
-        return text.length >= MIN_LENGTH && /\p{L}/u.test(text);
+        if (!text || !/\p{L}/u.test(text)) return false;
+        return text.length >= MIN_LENGTH || ADULT_HINT.test(text);
     }
 
     function normalize(text) {
@@ -161,7 +167,7 @@
 
             if (MEDIA_TAGS.has(el.tagName)) {
                 const mediaText = mediaTextOf(el);
-                if (mediaText.length < MIN_LENGTH || !/\p{L}/u.test(mediaText)) continue;
+                if (!hasMediaText(el)) continue;
                 if (seenText.has(mediaText)) continue;
                 seenText.add(mediaText);
                 const mediaID = stableID(el);

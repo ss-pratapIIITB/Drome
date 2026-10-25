@@ -14,8 +14,9 @@ final class AIContentFilter {
 
     private let layaRuntime = LayaMLXRuntime.shared
 
-    // Minimum chars to bother classifying at all
-    private let minBlockLength = 25
+    // Minimum chars before the model is asked. Shorter strings still go
+    // through the keyword heuristics — image alt text is often two words.
+    private let minLayaBlockLength = 25
 
     // Keep inference small and responsive; the native runtime also enforces its own input cap.
     private let maxBlockChars = 400
@@ -46,7 +47,7 @@ final class AIContentFilter {
 
         for (index, rawText) in rawTexts.enumerated() {
             let cleanedText = cleanText(rawText)
-            guard cleanedText.count >= minBlockLength else { continue }
+            guard !cleanedText.isEmpty else { continue }
             cleanedTexts[index] = cleanedText
 
             let (keywordSafe, keywordReason) = classifyWithHeuristics(text: cleanedText)
@@ -58,7 +59,9 @@ final class AIContentFilter {
                     confidence: nil,
                     latencyMs: nil
                 )
-            } else if useLaya, wordCount(cleanedText) > 3 {
+            } else if useLaya,
+                      cleanedText.count >= minLayaBlockLength,
+                      wordCount(cleanedText) > 3 {
                 pendingIndices.append(index)
                 pendingTexts.append(String(cleanedText.prefix(maxBlockChars)))
             } else {
@@ -144,8 +147,24 @@ final class AIContentFilter {
         ("sexual", "Adult content"), ("strip", "Adult content"),
     ]
 
+    // Unambiguously explicit terms decide adult content on their own. Image
+    // alt text is often two or three words ("nude models"), which would
+    // otherwise score below the short-text threshold. Deliberately narrow:
+    // "explicit" also describes lyrics and "sexual" appears in health or
+    // education contexts, so those stay score-based.
+    private static let decisiveAdultTerms: [(String, String)] = [
+        ("porn", "Adult content"), ("nude", "Adult content"),
+        ("naked", "Adult content"), ("nsfw", "Adult content"),
+        ("onlyfans", "Adult content"), ("sex tape", "Adult content"),
+        ("xxx", "Adult content"), ("erotic", "Adult content"),
+    ]
+
     private func classifyWithHeuristics(text: String) -> (Bool, String) {
         let lower = text.lowercased()
+
+        for (term, reason) in Self.decisiveAdultTerms where lower.contains(term) {
+            return (false, reason)
+        }
 
         var score = 0
         var reasons: [String] = []
