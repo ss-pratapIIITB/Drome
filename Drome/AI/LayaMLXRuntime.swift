@@ -311,18 +311,21 @@ private final class LayaAgent: @unchecked Sendable {
 
         if Self.quantizationEnabled {
             let quantizeStarted = ContinuousClock.now
-            quantize(
-                model: model,
-                groupSize: Self.quantizationGroupSize,
-                bits: Self.quantizationBits,
-                filter: { _, module in module is Linear }
-            )
+            // mlx-swift's `Module.update(modules:)` cannot rewire a module
+            // array whose first element is unchanged: unflattening fills the
+            // gap with `.none` and the internal `try!` traps. Encoder and head
+            // arrays are uniformly updated, but the scorer is a Sequential
+            // that starts with a LayerNorm, so it is rebuilt explicitly.
+            var quantizedLayers = Self.quantizeSubtree(model.encoder)
+            quantizedLayers += Self.quantizeSubtree(model.head)
+            quantizedLayers += Self.quantizeScorer(of: model)
             eval(model.parameters())
             Memory.clearCache()
             let quantizeMs = Self.milliseconds(since: quantizeStarted)
             print(String(
-                format: "[Laya] int%d quantized linear stack in %.0f ms (group %d) — active %.0f MB, peak %.0f MB",
+                format: "[Laya] int%d quantized %d layers in %.0f ms (group %d) — active %.0f MB, peak %.0f MB",
                 Self.quantizationBits,
+                quantizedLayers,
                 quantizeMs,
                 Self.quantizationGroupSize,
                 Double(Memory.activeMemory) / 1_048_576,
@@ -348,6 +351,71 @@ private final class LayaAgent: @unchecked Sendable {
         let elapsed = ContinuousClock.now - start
         return Double(elapsed.components.seconds) * 1_000
             + Double(elapsed.components.attoseconds) / 1e15
+    }
+
+    /// Quantizes every `Linear` below `module` in one module-update pass.
+    /// Returns the number of layers replaced (0 when the subtree is skipped).
+    @discardableResult
+    private static func quantizeSubtree(_ module: Module) -> Int {
+        let updates: [(String, Module)] = module.leafModules()
+            .flattened()
+            .compactMap { path, leaf in
+                guard let linear = leaf as? Linear,
+                      linear.weight.dim(-1) % quantizationGroupSize == 0,
+                      let quantized = quantizeSingle(
+                          layer: linear,
+                          groupSize: quantizationGroupSize,
+                          bits: quantizationBits
+                      )
+                else { return nil }
+                return (path, quantized)
+            }
+        guard !updates.isEmpty else { return 0 }
+        do {
+            try module.update(
+                modules: ModuleChildren.unflattened(updates),
+                verify: .none
+            )
+            return updates.count
+        } catch {
+            print("[Laya] quantization skipped a subtree: \(error)")
+            return 0
+        }
+    }
+
+    /// Quantizes the Sequential scorer. It is rebuilt instead of updated
+    /// because the first child (LayerNorm) is not quantizable.
+    @discardableResult
+    private static func quantizeScorer(of model: LayaDecisionModel) -> Int {
+        var layers: [UnaryLayer] = []
+        var replaced = 0
+        for layer in model.scorer.layers {
+            if let linear = layer as? Linear,
+               linear.weight.dim(-1) % quantizationGroupSize == 0,
+               let quantized = quantizeSingle(
+                   layer: linear,
+                   groupSize: quantizationGroupSize,
+                   bits: quantizationBits
+               ) as? UnaryLayer {
+                layers.append(quantized)
+                replaced += 1
+            } else {
+                layers.append(layer)
+            }
+        }
+        guard replaced > 0 else { return 0 }
+        do {
+            try model.update(
+                modules: ModuleChildren.unflattened([
+                    "scorer": Sequential(layers: layers)
+                ]),
+                verify: .none
+            )
+            return replaced
+        } catch {
+            print("[Laya] scorer quantization skipped: \(error)")
+            return 0
+        }
     }
 
     func classifyBatch(_ texts: [String], threshold: Float = 0.55) throws -> [LayaClassificationResponse] {

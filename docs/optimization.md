@@ -61,6 +61,16 @@ The implementation is `quantize(model:groupSize:bits:filter:)` at load in
 MLX → 8-bit weights` switches between int8 and FP16; the choice applies the next
 time the model loads (relaunch).
 
+**Pitfall found in practice:** mlx-swift's `Module.update(modules:)` cannot
+rewire a module array whose *first* element is not replaced. Flattened update
+paths are unflattened with `.none` gaps, and the array branch of `update`
+traps (the non-throwing wrapper is `try! update(modules:verify:)`). This model's
+scorer is `Sequential { LayerNorm, Linear, GELU, Linear }`, so quantizing the
+whole tree crashed on load with `SIGTRAP`. The runtime now quantizes the
+encoder and head subtrees (their layer arrays are uniformly updated) and
+rebuilds the scorer explicitly, using the throwing `update` overload so a
+failure logs and leaves those weights FP16 instead of killing the app.
+
 ### 2. Tokenization caching (next)
 
 `prepare(state:question:)` re-encodes the *same* question instruction and
