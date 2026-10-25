@@ -183,6 +183,17 @@ private struct LayaPreparedItem: Sendable {
 }
 
 private final class LayaAgent: @unchecked Sendable {
+    // 8-bit affine quantization of the linear stack. Embeddings, norms and
+    // biases stay FP16: they are a small share of the checkpoint and their
+    // kernels are latency-neutral, while every transformer/head matmul gets
+    // MLX's int8 path and roughly half the weight traffic.
+    private static let quantizationBits = 8
+    private static let quantizationGroupSize = 64
+    private static var quantizationEnabled: Bool {
+        // Default ON when the key has never been set.
+        UserDefaults.standard.object(forKey: "aiQuantizeModel") as? Bool ?? true
+    }
+
     private static let unsafeQuestion = LayaQuestion(
         kind: .noul,
         instructions: "Would this web content likely trigger anxiety or be unsafe because it contains violence, death, self-harm, crime, disaster, a health crisis, financial doom, adult content, outrage bait, alarming claims, or high-pressure urgency?",
@@ -295,7 +306,35 @@ private final class LayaAgent: @unchecked Sendable {
             parameters: ModuleParameters.unflattened(weights),
             verify: .all
         )
+        weights.removeAll()
         eval(model.parameters())
+
+        if Self.quantizationEnabled {
+            let quantizeStarted = ContinuousClock.now
+            quantize(
+                model: model,
+                groupSize: Self.quantizationGroupSize,
+                bits: Self.quantizationBits,
+                filter: { _, module in module is Linear }
+            )
+            eval(model.parameters())
+            Memory.clearCache()
+            let quantizeMs = Self.milliseconds(since: quantizeStarted)
+            print(String(
+                format: "[Laya] int%d quantized linear stack in %.0f ms (group %d) — active %.0f MB, peak %.0f MB",
+                Self.quantizationBits,
+                quantizeMs,
+                Self.quantizationGroupSize,
+                Double(Memory.activeMemory) / 1_048_576,
+                Double(Memory.peakMemory) / 1_048_576
+            ))
+        } else {
+            print(String(
+                format: "[Laya] FP16 weights — active %.0f MB, peak %.0f MB",
+                Double(Memory.activeMemory) / 1_048_576,
+                Double(Memory.peakMemory) / 1_048_576
+            ))
+        }
 
         Memory.cacheLimit = 64 * 1024 * 1024
         return try LayaAgent(
@@ -303,6 +342,12 @@ private final class LayaAgent: @unchecked Sendable {
             model: model,
             configuration: agentConfiguration
         )
+    }
+
+    private static func milliseconds(since start: ContinuousClock.Instant) -> Double {
+        let elapsed = ContinuousClock.now - start
+        return Double(elapsed.components.seconds) * 1_000
+            + Double(elapsed.components.attoseconds) / 1e15
     }
 
     func classifyBatch(_ texts: [String], threshold: Float = 0.55) throws -> [LayaClassificationResponse] {

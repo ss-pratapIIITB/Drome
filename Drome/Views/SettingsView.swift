@@ -169,12 +169,23 @@ struct SettingsView: View {
 }
 
 struct LayaMLXSettingsView: View {
+    @AppStorage("aiQuantizeModel") private var quantizeModel = true
+
     var body: some View {
         Form {
             Section("On-device model") {
                 LabeledContent("Runtime", value: "MLX Swift")
-                LabeledContent("Model", value: "Laya 421M FP16")
-                LabeledContent("Download", value: "~843 MB")
+                LabeledContent("Model", value: "Laya 421M")
+                LabeledContent("Weights", value: quantizeModel ? "8-bit" : "FP16")
+                LabeledContent("Download", value: "~843 MB (FP16 checkpoint)")
+            }
+
+            Section {
+                Toggle(isOn: $quantizeModel) {
+                    Label("8-bit weights", systemImage: "memorychip")
+                }
+            } footer: {
+                Text("Quantizes the linear stack with MLX's int8 kernels, roughly halving resident model memory and weight traffic. Takes effect the next time the model loads — relaunch the app to compare.")
             }
 
             Section {
