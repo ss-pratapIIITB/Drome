@@ -123,11 +123,17 @@ final class BrowserViewModel: ObservableObject {
     }
 
     func goBack() {
-        currentTab?.webView?.goBack()
+        guard let webView = currentTab?.webView, webView.canGoBack else { return }
+        let previousURL = webView.url
+        webView.goBack()
+        currentTab?.webViewCoordinator?.scheduleHistoryNavigationRescan(from: previousURL)
     }
 
     func goForward() {
-        currentTab?.webView?.goForward()
+        guard let webView = currentTab?.webView, webView.canGoForward else { return }
+        let previousURL = webView.url
+        webView.goForward()
+        currentTab?.webViewCoordinator?.scheduleHistoryNavigationRescan(from: previousURL)
     }
 
     func reload() {

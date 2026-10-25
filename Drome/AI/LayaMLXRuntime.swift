@@ -33,6 +33,7 @@ actor LayaMLXRuntime {
 
     private var agent: LayaAgent?
     private var loadingTask: Task<LayaAgent, Error>?
+    private(set) var loadSummary: String?
 
     func prepare(progress: @escaping @Sendable (Double) -> Void = { _ in }) async throws {
         _ = try await loadAgent(progress: progress)
@@ -68,6 +69,7 @@ actor LayaMLXRuntime {
         do {
             let loaded = try await task.value
             agent = loaded
+            loadSummary = loaded.loadSummary
             loadingTask = nil
             return loaded
         } catch {
@@ -232,6 +234,7 @@ private final class LayaAgent: @unchecked Sendable {
     private let tokenizer: any Tokenizer
     private let model: LayaDecisionModel
     private let configuration: LayaAgentConfiguration
+    let loadSummary: String
     private let clsTokenID: Int32
     private let separatorTokenID: Int32
     private let paddingTokenID: Int32
@@ -240,11 +243,13 @@ private final class LayaAgent: @unchecked Sendable {
     private init(
         tokenizer: any Tokenizer,
         model: LayaDecisionModel,
-        configuration: LayaAgentConfiguration
+        configuration: LayaAgentConfiguration,
+        loadSummary: String
     ) throws {
         self.tokenizer = tokenizer
         self.model = model
         self.configuration = configuration
+        self.loadSummary = loadSummary
 
         guard let cls = tokenizer.convertTokenToId("[CLS]") else {
             throw LayaMLXError.missingSpecialToken("[CLS]")
@@ -309,6 +314,9 @@ private final class LayaAgent: @unchecked Sendable {
         weights.removeAll()
         eval(model.parameters())
 
+        let activeMB = Double(Memory.activeMemory) / 1_048_576
+        let peakMB = Double(Memory.peakMemory) / 1_048_576
+        let loadSummary: String
         if Self.quantizationEnabled {
             let quantizeStarted = ContinuousClock.now
             // mlx-swift's `Module.update(modules:)` cannot rewire a module
@@ -322,28 +330,29 @@ private final class LayaAgent: @unchecked Sendable {
             eval(model.parameters())
             Memory.clearCache()
             let quantizeMs = Self.milliseconds(since: quantizeStarted)
-            print(String(
-                format: "[Laya] int%d quantized %d layers in %.0f ms (group %d) — active %.0f MB, peak %.0f MB",
+            loadSummary = String(
+                format: "Laya int%d · %d layers quantized in %.0f ms · %.0f MB active (peak %.0f MB)",
                 Self.quantizationBits,
                 quantizedLayers,
                 quantizeMs,
-                Self.quantizationGroupSize,
-                Double(Memory.activeMemory) / 1_048_576,
-                Double(Memory.peakMemory) / 1_048_576
-            ))
+                activeMB,
+                peakMB
+            )
         } else {
-            print(String(
-                format: "[Laya] FP16 weights — active %.0f MB, peak %.0f MB",
-                Double(Memory.activeMemory) / 1_048_576,
-                Double(Memory.peakMemory) / 1_048_576
-            ))
+            loadSummary = String(
+                format: "Laya FP16 · %.0f MB active (peak %.0f MB)",
+                activeMB,
+                peakMB
+            )
         }
+        print("[Laya] \(loadSummary)")
 
         Memory.cacheLimit = 64 * 1024 * 1024
         return try LayaAgent(
             tokenizer: tokenizer,
             model: model,
-            configuration: agentConfiguration
+            configuration: agentConfiguration,
+            loadSummary: loadSummary
         )
     }
 

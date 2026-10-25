@@ -24,6 +24,12 @@ final class AIContentFilter {
         try await layaRuntime.prepare()
     }
 
+    /// Model-load report (weight mode, quantize time, active/peak memory) for
+    /// the in-app console.
+    func currentLoadSummary() async -> String? {
+        await layaRuntime.loadSummary
+    }
+
     func classify(text rawText: String, useLaya: Bool) async -> ContentClassificationResult? {
         let results = await classifyBatch(texts: [rawText], useLaya: useLaya)
         guard let first = results.first else { return nil }

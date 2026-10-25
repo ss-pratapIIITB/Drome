@@ -19,6 +19,9 @@ final class WebViewCoordinator: NSObject {
     private var lastShowMarkers: Bool?
     private var lastForceDarkMode: Bool?
     private var progressObservation: NSKeyValueObservation?
+    private var lastSessionURL: URL?
+    private var historyRescanTask: Task<Void, Never>?
+    private var lastLoggedLoadSummary: String?
 
     private let scanBatchSize = 4
 
@@ -149,6 +152,7 @@ final class WebViewCoordinator: NSObject {
         isPageActive = true
         let session = PageScanSession(tabID: tabID, navigationGeneration: pageGeneration)
         pageSession = session
+        lastSessionURL = webView.url
         devToolsVM?.clearAIResults()
         webView.evaluateJavaScript(JavaScriptInjector.setUnsafeHiddenJS(hideUnsafe), completionHandler: nil)
         webView.evaluateJavaScript(JavaScriptInjector.injectMutationObserverJS(), completionHandler: nil)
@@ -174,6 +178,40 @@ final class WebViewCoordinator: NSObject {
         }
     }
 
+    /// Back/forward pages are frequently restored from WebKit's back-forward
+    /// cache, which does not reliably deliver `didStartProvisionalNavigation` /
+    /// `didFinish` to the delegate. The scan is normally started from
+    /// `didFinish`, so without this a restored page comes back unscanned (and
+    /// the previous session was already cancelled when navigating away).
+    func scheduleHistoryNavigationRescan(from previousURL: URL?) {
+        historyRescanTask?.cancel()
+        historyRescanTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            // Let WebKit begin the history navigation before inspecting state.
+            try? await Task.sleep(nanoseconds: 250_000_000)
+            guard !Task.isCancelled, let webView = self.tab?.webView else { return }
+
+            var waited = 0
+            while webView.isLoading && waited < 40 {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+                waited += 1
+                if Task.isCancelled { return }
+            }
+            guard !Task.isCancelled, !webView.isLoading else { return } // didFinish will handle it
+            guard self.browserVM?.aiFilterEnabled == true,
+                  self.browserVM?.currentTab?.id == self.tab?.id else { return }
+
+            let url = webView.url
+            // The history navigation did not take effect.
+            if url == previousURL { return }
+            // A fresh session already covers this page.
+            if self.pageSession != nil, self.lastSessionURL == url { return }
+
+            self.pageFinishedLoading = true
+            self.beginPageScan(webView: webView)
+        }
+    }
+
     private func startMutationDrainIfNeeded(webView: WKWebView) {
         guard scanTask == nil, let sessionID = pageSession?.id else { return }
         scanTask = Task { @MainActor [weak self, weak webView] in
@@ -193,6 +231,11 @@ final class WebViewCoordinator: NSObject {
             log("🤖 Preparing on-device Laya MLX…")
             try await aiFilter?.prepareLaya()
             useLaya = true
+            if let summary = await aiFilter?.currentLoadSummary(),
+               summary != lastLoggedLoadSummary {
+                lastLoggedLoadSummary = summary
+                log("🤖 \(summary)")
+            }
         } catch {
             useLaya = false
             if isSessionCurrent(sessionID) {
