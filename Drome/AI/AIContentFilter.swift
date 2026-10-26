@@ -8,11 +8,21 @@ struct ContentClassificationResult {
     let latencyMs: Double?
 }
 
+/// Tokenize/model split for the last Laya batch, for the in-app console.
+struct LayaBatchTiming {
+    let blocks: Int
+    let tokenizeMs: Double
+    let modelMs: Double
+}
+
 // MARK: - AIContentFilter
 
 final class AIContentFilter {
 
     private let layaRuntime = LayaMLXRuntime.shared
+
+    /// Timing split of the most recent Laya batch (nil when no model call ran).
+    private(set) var lastLayaTiming: LayaBatchTiming?
 
     // Minimum chars before the model is asked. Shorter strings still go
     // through the keyword heuristics — image alt text is often two words.
@@ -40,6 +50,7 @@ final class AIContentFilter {
     /// Classifies a batch in one model call. Results keep the input order and are
     /// `nil` for blocks shorter than `minBlockLength`.
     func classifyBatch(texts rawTexts: [String], useLaya: Bool) async -> [ContentClassificationResult?] {
+        lastLayaTiming = nil
         var cleanedTexts = [String?](repeating: nil, count: rawTexts.count)
         var results = [ContentClassificationResult?](repeating: nil, count: rawTexts.count)
         var pendingIndices: [Int] = []
@@ -79,6 +90,13 @@ final class AIContentFilter {
 
         do {
             let responses = try await layaRuntime.classifyBatch(pendingTexts)
+            if let first = responses.first {
+                lastLayaTiming = LayaBatchTiming(
+                    blocks: pendingTexts.count,
+                    tokenizeMs: first.tokenizeMs,
+                    modelMs: first.modelMs
+                )
+            }
             for (offset, index) in pendingIndices.enumerated() where offset < responses.count {
                 let response = responses[offset]
                 results[index] = ContentClassificationResult(

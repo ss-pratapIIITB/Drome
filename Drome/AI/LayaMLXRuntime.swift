@@ -9,6 +9,8 @@ struct LayaClassificationResponse: Sendable {
     let reason: String
     let confidence: Double
     let latencyMs: Double
+    let tokenizeMs: Double
+    let modelMs: Double
 }
 
 enum LayaMLXError: LocalizedError {
@@ -432,17 +434,21 @@ private final class LayaAgent: @unchecked Sendable {
         try Task.checkCancellation()
         let started = ContinuousClock.now
 
-        let unsafeProbabilities = try unsafeProbabilities(for: texts)
+        let unsafePass = try unsafeProbabilities(for: texts)
+        let unsafeProbabilities = unsafePass.values
         let unsafeIndices = unsafeProbabilities.indices.filter {
             unsafeProbabilities[$0] >= threshold
         }
-        let categories = try categoryLabels(
+        let categoryPass = try categoryLabels(
             for: unsafeIndices.map { texts[$0] }
         )
+        let categories = categoryPass.labels
 
         let duration = started.duration(to: .now)
         let milliseconds = Double(duration.components.seconds) * 1_000
             + Double(duration.components.attoseconds) / 1e15
+        let tokenizeMs = unsafePass.tokenizeMs + categoryPass.tokenizeMs
+        let modelMs = unsafePass.modelMs + categoryPass.modelMs
 
         var categoryByIndex: [Int: String] = [:]
         for (offset, index) in unsafeIndices.enumerated() {
@@ -459,14 +465,22 @@ private final class LayaAgent: @unchecked Sendable {
                 safe: safe,
                 reason: reason,
                 confidence: Double(confidence),
-                latencyMs: milliseconds
+                latencyMs: milliseconds,
+                tokenizeMs: tokenizeMs,
+                modelMs: modelMs
             )
         }
     }
 
-    private func unsafeProbabilities(for texts: [String]) throws -> [Float] {
+    private func unsafeProbabilities(
+        for texts: [String]
+    ) throws -> (values: [Float], tokenizeMs: Double, modelMs: Double) {
+        let tokenizeStarted = ContinuousClock.now
         let items = texts.map { prepare(state: $0, question: Self.unsafeQuestion) }
         let batch = collate(items)
+        let tokenizeMs = Self.milliseconds(since: tokenizeStarted)
+
+        let modelStarted = ContinuousClock.now
         let logits = model(
             inputIDs: batch.inputIDs,
             attentionMask: batch.attentionMask,
@@ -477,14 +491,21 @@ private final class LayaAgent: @unchecked Sendable {
         let unsafeTemperature = temperature(questionType: 2, optionCount: 2)
         let probabilities = softmax(logits[0 ..< texts.count, 0 ..< 2] / unsafeTemperature, axis: -1)
         eval(probabilities)
+        let modelMs = Self.milliseconds(since: modelStarted)
         try Task.checkCancellation()
-        return probabilities[0 ..< texts.count, 1].asArray(Float.self)
+        return (probabilities[0 ..< texts.count, 1].asArray(Float.self), tokenizeMs, modelMs)
     }
 
-    private func categoryLabels(for texts: [String]) throws -> [String] {
-        guard !texts.isEmpty else { return [] }
+    private func categoryLabels(
+        for texts: [String]
+    ) throws -> (labels: [String], tokenizeMs: Double, modelMs: Double) {
+        guard !texts.isEmpty else { return ([], 0, 0) }
+        let tokenizeStarted = ContinuousClock.now
         let items = texts.map { prepare(state: $0, question: Self.categoryQuestion) }
         let batch = collate(items)
+        let tokenizeMs = Self.milliseconds(since: tokenizeStarted)
+
+        let modelStarted = ContinuousClock.now
         let logits = model(
             inputIDs: batch.inputIDs,
             attentionMask: batch.attentionMask,
@@ -495,18 +516,33 @@ private final class LayaAgent: @unchecked Sendable {
         let categoryTemperature = temperature(questionType: 0, optionCount: 8)
         let probabilities = softmax(logits[0 ..< texts.count, 0 ..< 8] / categoryTemperature, axis: -1)
         eval(probabilities)
+        let modelMs = Self.milliseconds(since: modelStarted)
         try Task.checkCancellation()
 
-        return try (0 ..< texts.count).map { row in
+        let labels = try (0 ..< texts.count).map { row in
             let index = probabilities[row].argMax().item(Int32.self)
             guard Self.categoryQuestion.options.indices.contains(Int(index)) else {
                 throw LayaMLXError.invalidModelOutput
             }
             return Self.categoryQuestion.options[Int(index)].label
         }
+        return (labels, tokenizeMs, modelMs)
     }
 
-    private func prepare(state: String, question: LayaQuestion) -> LayaPreparedItem {
+    private struct CachedQuestion {
+        let prefix: [Int32]
+        let markers: [Int32]
+        let questionType: Int32
+    }
+
+    /// Encoded question prefix (`[CLS] + instruction + markers + [SEP]`) and
+    /// marker positions. These are identical for every block of a question
+    /// kind, so they are tokenized once instead of once per block.
+    private var questionCache: [Int32: CachedQuestion] = [:]
+
+    private func cachedQuestion(_ question: LayaQuestion) -> CachedQuestion {
+        if let cached = questionCache[question.kind.index] { return cached }
+
         let cleanInstructions = question.instructions.replacingOccurrences(of: "[MASK]", with: " ")
         var headIDs = tokenizer.encode(
             text: "\(question.kind.rawValue) question: \(cleanInstructions)",
@@ -535,6 +571,15 @@ private final class LayaAgent: @unchecked Sendable {
         }
         ids.append(separatorTokenID)
 
+        let cached = CachedQuestion(prefix: ids, markers: markers, questionType: question.kind.index)
+        questionCache[question.kind.index] = cached
+        return cached
+    }
+
+    private func prepare(state: String, question: LayaQuestion) -> LayaPreparedItem {
+        let cached = cachedQuestion(question)
+        var ids = cached.prefix
+
         let room = max(0, configuration.maxLength - ids.count - 1)
         let cleanState = state.replacingOccurrences(of: "[MASK]", with: " ")
         let stateIDs = tokenizer.encode(text: cleanState, addSpecialTokens: false)
@@ -543,8 +588,8 @@ private final class LayaAgent: @unchecked Sendable {
 
         return LayaPreparedItem(
             ids: Array(ids.prefix(configuration.maxLength)),
-            markerPositions: markers.filter { $0 < configuration.maxLength },
-            questionType: question.kind.index
+            markerPositions: cached.markers.filter { $0 < configuration.maxLength },
+            questionType: cached.questionType
         )
     }
 

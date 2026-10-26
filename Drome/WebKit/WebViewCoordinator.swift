@@ -251,6 +251,9 @@ final class WebViewCoordinator: NSObject {
                 texts: batch.map(\.text),
                 useLaya: useLaya
             ) ?? []
+            if let timing = aiFilter?.lastLayaTiming {
+                log("⏱ \(timing.blocks) blocks — tokenize \(Int(timing.tokenizeMs.rounded())) ms · model \(Int(timing.modelMs.rounded())) ms")
+            }
             guard isSessionCurrent(sessionID), !Task.isCancelled else { return }
 
             var updates: [JavaScriptInjector.LabelUpdate] = []

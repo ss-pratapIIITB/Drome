@@ -71,16 +71,23 @@ encoder and head subtrees (their layer arrays are uniformly updated) and
 rebuilds the scorer explicitly, using the throwing `update` overload so a
 failure logs and leaves those weights FP16 instead of killing the app.
 
-### 2. Tokenization caching (next)
+### 2. Tokenization caching (shipped)
 
-`prepare(state:question:)` re-encodes the *same* question instruction and
-option strings for every block, on both passes. The encoded head/option prefix
-can be computed once per question kind; only the page text needs tokenizing per
-block. This is pure CPU work removed from the hot path, with no accuracy risk.
-The same cache can key per-text encodings by the block fingerprint across
-rescans.
+`prepare(state:question:)` used to re-encode the same question instruction and
+option strings for every block, on both passes. The encoded prefix
+(`[CLS] + instruction + markers + [SEP]`) and its marker positions are now
+tokenized once per question kind and reused; only the page text is tokenized per
+block.
 
-### 3. Graph compilation
+### 3. Incremental rescans (shipped)
+
+`collect()` now skips a block that already carries a verdict with a matching
+fingerprint (`data-drome-safe` + `data-drome-fingerprint`). Fresh navigations
+clear labels first, so they scan everything; back/forward restores keep their
+labels and become effectively free. An edited block gets a new fingerprint and
+is classified again. The mutation observer already worked this way.
+
+### 4. Graph compilation
 
 MLX Swift exposes `compile` in the pinned revision. It fuses elementwise chains
 and reduces dispatch overhead, but the payoff is bounded here because the graph
@@ -89,7 +96,7 @@ is dominated by large matmuls and Swift-side tokenization. Shapes are dynamic
 avoid retracing. Benchmark it after quantization and tokenization caching, not
 before.
 
-### 4. Allocator cache
+### 5. Allocator cache
 
 `Memory.cacheLimit` is currently 64 MB. The cache recycles activation buffers
 between batches; weights are long-lived and unaffected. A larger cache can
@@ -97,7 +104,7 @@ avoid reallocation churn, but it also raises peak RSS next to a large model.
 Treat it as a measured experiment (128 MB vs 256 MB vs 64 MB), not a default
 change.
 
-### 5. Batch size
+### 6. Batch size
 
 Batches are capped at 4. Larger batches amortize per-batch overhead but change
 how quickly the page updates during scrolling. That trade-off was deliberately
@@ -128,7 +135,8 @@ mechanism correctly hides what the model flags.
   hiding bugs; the full run drives the Python Laya model. To compare int8 vs
   FP16 verdicts directly, quantize the checkpoint in Python MLX and re-run the
   harness with that model.
-- **Latency and memory on device** — the app logs per-batch latency and, at
-  load, MLX active/peak memory. Compare FP16 vs int8 by toggling the setting
-  and relaunching. The Laya playground shows single-text latency without a
-  page scan.
+- **Latency and memory on device** — the app logs per-batch latency, a
+  `⏱ N blocks — tokenize X ms · model Y ms` split in the devtools console, and
+  the model-load report (weight mode, quantize time, active/peak memory).
+  Compare FP16 vs int8 by toggling the setting and relaunching. The Laya
+  playground shows single-text latency without a page scan.

@@ -79,6 +79,15 @@
         return count;
     }
 
+    // A block that already carries a verdict with the same fingerprint needs no
+    // second model call. Back/forward restores keep their labels; an edited
+    // block gets a new fingerprint and is scanned again.
+    function alreadyClassified(el, fp) {
+        const label = el.getAttribute && el.getAttribute('data-drome-safe');
+        if (label !== '1' && label !== '0') return false;
+        return el.getAttribute('data-drome-fingerprint') === fp;
+    }
+
     function collect(root) {
         const start = root && root.nodeType === Node.ELEMENT_NODE ? root : document.body;
         if (!start) return [];
@@ -169,13 +178,15 @@
                 const mediaText = mediaTextOf(el);
                 if (!hasMediaText(el)) continue;
                 if (seenText.has(mediaText)) continue;
+                const mediaFingerprint = fingerprint(mediaText);
+                if (alreadyClassified(el, mediaFingerprint)) continue;
                 seenText.add(mediaText);
                 const mediaID = stableID(el);
                 candidates.push({
                     id: mediaID,
                     text: mediaText.slice(0, MAX_TEXT),
                     xpath: "//*[@data-drome-block-id='" + mediaID + "']",
-                    fingerprint: fingerprint(mediaText)
+                    fingerprint: mediaFingerprint
                 });
                 if (candidates.length >= MAX_CANDIDATES) break;
                 continue;
@@ -189,13 +200,16 @@
             const linkChars = linkCharacterCount(el);
             if (linkChars > text.length * 0.6 && text.length < 300) continue;
 
+            const textFingerprint = fingerprint(text);
+            if (alreadyClassified(el, textFingerprint)) continue;
+
             seenText.add(text);
             const id = stableID(el);
             candidates.push({
                 id: id,
                 text: text.slice(0, MAX_TEXT),
                 xpath: "//*[@data-drome-block-id='" + id + "']",
-                fingerprint: fingerprint(text)
+                fingerprint: textFingerprint
             });
             if (candidates.length >= MAX_CANDIDATES) break;
         }
