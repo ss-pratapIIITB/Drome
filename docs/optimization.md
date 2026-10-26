@@ -87,18 +87,18 @@ clear labels first, so they scan everything; back/forward restores keep their
 labels and become effectively free. An edited block gets a new fingerprint and
 is classified again. The mutation observer already worked this way.
 
-### 4. Graph compilation (shipped, toggle)
+### 4. Graph compilation — measured, rejected
 
-The forward pass is wrapped with MLX's `compile`, so elementwise chains fuse and
-kernel dispatches drop. Sequence lengths are padded to 64-token buckets so the
-per-shape compile cache stays small instead of compiling once per exact block
-length. `Settings → Privacy → Laya MLX → Compiled graph` switches back to eager
-execution (applies on the next model load).
+Tried: `MLX.compile` over the full forward pass, with sequence lengths padded to
+64-token buckets so the per-shape compile cache stayed small. On-device A/B was
+slower both for the first batch (trace cost) and in steady state: bucket padding
+adds real arithmetic (attention cost grows with sequence length), and MLX's
+eager pass already fuses enough that compilation does not pay it back. The code
+path and its toggle were removed.
 
-Two costs to know: the first call for a shape pays the trace/compile time (so
-the first batch after launch is slower than steady state), and each cached shape
-holds a compiled executable. If compilation fails, the runtime logs it and
-falls back to eager execution for the session instead of crashing.
+Recorded so the experiment is not repeated. If revisited: do not pad lengths
+(padding changes the arithmetic), and only expect a win if many blocks share
+similar lengths, so compiled shapes are reused without waste.
 
 ### 5. Allocator cache
 
@@ -113,6 +113,27 @@ change.
 Batches are capped at 4. Larger batches amortize per-batch overhead but change
 how quickly the page updates during scrolling. That trade-off was deliberately
 parked; it belongs to scan-latency tuning, not model math.
+
+## Experiments log
+
+Everything we tried, including the dead ends — so the same work is not repeated
+blindly. Method: same device and page, compare steady-state `⏱ N blocks —
+tokenize X ms · model Y ms` lines (ignore the first batch after launch), and
+check verdicts with the `eval/` harness where accuracy could move.
+
+| Experiment | Status | Result |
+| --- | --- | --- |
+| int8 quantization of the linear stack (group 64) | Shipped | Resident weights ~843 MB → ~460 MB, int8 matmul kernels on the hot path. Verdicts unchanged on the eval hand labels; on-device results comparable. One-off quantize cost at load, peak ~1.3 GB. |
+| Question-prefix tokenization cache | Shipped | Question + answer options are tokenized once per question kind instead of per block (previously ~9 redundant encodes per block per pass). Console now splits tokenize vs model time. |
+| Incremental rescans (fingerprint-aware `collect`) | Shipped | A labeled block with a matching fingerprint is skipped. Fresh navigations still scan everything; back/forward restores with retained labels do no model work. Edited blocks return via a new fingerprint. Verified on the Al Jazeera fixture (54 → 53 candidates, block returns when the fingerprint is stale). |
+| `MLX.compile` with 64-token length buckets | Explored, rejected | **Slower** on device both at start (trace cost) and in steady state: padding to length buckets adds real attention arithmetic, and MLX's eager pass already fuses enough. Code removed; kept here as a recorded result. |
+| Allocator cache 64 MB → 128/256 MB | Pending | One-line A/B, measurable with the load's active/peak numbers. |
+| Batch size 4 → 8 | Deferred | Would amortize per-batch overhead but changes how quickly the page updates while scrolling. Revisit only if scan cadence can absorb it. |
+| Threshold / option-wording sweep | Pending (accuracy track) | The false positives seen on real news text are classifier decisions, not hiding bugs; sweep against labeled fixtures with repeats. |
+
+What the data says so far: tokenization was a meaningful per-block cost and is
+now cached; in steady state the model dominates; compiled graphs and padding
+make it worse, not better.
 
 ## Accuracy levers (separate from runtime speed)
 

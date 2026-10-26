@@ -170,7 +170,6 @@ struct SettingsView: View {
 
 struct LayaMLXSettingsView: View {
     @AppStorage("aiQuantizeModel") private var quantizeModel = true
-    @AppStorage("aiCompileGraph") private var compileGraph = true
 
     var body: some View {
         Form {
@@ -185,11 +184,8 @@ struct LayaMLXSettingsView: View {
                 Toggle(isOn: $quantizeModel) {
                     Label("8-bit weights", systemImage: "memorychip")
                 }
-                Toggle(isOn: $compileGraph) {
-                    Label("Compiled graph", systemImage: "square.stack.3d.up")
-                }
             } footer: {
-                Text("8-bit quantizes the linear stack, roughly halving resident model memory. Compiled graph fuses the forward pass into a per-shape executable; lengths are bucketed to 64-token steps. Both apply the next time the model loads — relaunch the app to compare.")
+                Text("Quantizes the linear stack with MLX's int8 kernels, roughly halving resident model memory and weight traffic. Takes effect the next time the model loads — relaunch the app to compare.")
             }
 
             Section {
