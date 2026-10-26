@@ -140,6 +140,7 @@ A local harness that measures what actually disappears from a page, not just wha
 - 421M parameters, FP16, 842,609,225-byte checkpoint.
 - Model load and inference run on the Apple GPU through MLX.
 - Linear layers are quantized to int8 at load (group 64); embeddings and norms stay FP16. Resident weights drop from ~843 MB to ~460 MB. Toggle in Settings → Laya MLX (applies on relaunch).
+- The forward pass is compiled with MLX `compile`, with sequence lengths bucketed to 64 tokens; `Compiled graph` toggles eager execution if needed (applies on relaunch).
 - The MLX boundary, why an engine rewrite is not a useful lever, and the tuning roadmap are in [`docs/optimization.md`](docs/optimization.md).
 - Latency, peak memory, and thermal behavior vary by device; measure on your target hardware before making claims. `docs/laya-mlx-swift.md` lists the metrics to capture.
 

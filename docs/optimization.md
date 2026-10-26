@@ -87,14 +87,18 @@ clear labels first, so they scan everything; back/forward restores keep their
 labels and become effectively free. An edited block gets a new fingerprint and
 is classified again. The mutation observer already worked this way.
 
-### 4. Graph compilation
+### 4. Graph compilation (shipped, toggle)
 
-MLX Swift exposes `compile` in the pinned revision. It fuses elementwise chains
-and reduces dispatch overhead, but the payoff is bounded here because the graph
-is dominated by large matmuls and Swift-side tokenization. Shapes are dynamic
-(batch 1–4, sequence length varies per block), so this needs shape bucketing to
-avoid retracing. Benchmark it after quantization and tokenization caching, not
-before.
+The forward pass is wrapped with MLX's `compile`, so elementwise chains fuse and
+kernel dispatches drop. Sequence lengths are padded to 64-token buckets so the
+per-shape compile cache stays small instead of compiling once per exact block
+length. `Settings → Privacy → Laya MLX → Compiled graph` switches back to eager
+execution (applies on the next model load).
+
+Two costs to know: the first call for a shape pays the trace/compile time (so
+the first batch after launch is slower than steady state), and each cached shape
+holds a compiled executable. If compilation fails, the runtime logs it and
+falls back to eager execution for the session instead of crashing.
 
 ### 5. Allocator cache
 

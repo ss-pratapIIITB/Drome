@@ -197,6 +197,10 @@ private final class LayaAgent: @unchecked Sendable {
         // Default ON when the key has never been set.
         UserDefaults.standard.object(forKey: "aiQuantizeModel") as? Bool ?? true
     }
+    private static var compilationEnabled: Bool {
+        // Default ON when the key has never been set.
+        UserDefaults.standard.object(forKey: "aiCompileGraph") as? Bool ?? true
+    }
 
     private static let unsafeQuestion = LayaQuestion(
         kind: .noul,
@@ -242,6 +246,12 @@ private final class LayaAgent: @unchecked Sendable {
     private let paddingTokenID: Int32
     private let maskTokenID: Int32
 
+    private typealias Forward = @Sendable (
+        MLXArray, MLXArray, MLXArray, MLXArray, MLXArray
+    ) -> MLXArray
+    private let compiledForward: Forward?
+    private var compiledGraphFailed = false
+
     private init(
         tokenizer: any Tokenizer,
         model: LayaDecisionModel,
@@ -269,6 +279,22 @@ private final class LayaAgent: @unchecked Sendable {
         separatorTokenID = Int32(separator)
         paddingTokenID = Int32(padding)
         maskTokenID = Int32(mask)
+
+        if Self.compilationEnabled {
+            let decisionModel = model
+            compiledForward = compile(shapeless: false) {
+                inputIDs, attentionMask, markerPositions, markerMask, questionTypes in
+                decisionModel(
+                    inputIDs: inputIDs,
+                    attentionMask: attentionMask,
+                    markerPositions: markerPositions,
+                    markerMask: markerMask,
+                    questionTypes: questionTypes
+                )
+            }
+        } else {
+            compiledForward = nil
+        }
     }
 
     static func load(
@@ -332,20 +358,14 @@ private final class LayaAgent: @unchecked Sendable {
             eval(model.parameters())
             Memory.clearCache()
             let quantizeMs = Self.milliseconds(since: quantizeStarted)
-            loadSummary = String(
-                format: "Laya int%d · %d layers quantized in %.0f ms · %.0f MB active (peak %.0f MB)",
-                Self.quantizationBits,
-                quantizedLayers,
-                quantizeMs,
-                activeMB,
-                peakMB
-            )
+            let backend = Self.compilationEnabled ? "compiled" : "eager"
+            loadSummary = "Laya int\(Self.quantizationBits) · \(backend) graph · "
+                + "\(quantizedLayers) layers quantized in \(Int(quantizeMs.rounded())) ms · "
+                + "\(Int(activeMB.rounded())) MB active (peak \(Int(peakMB.rounded())) MB)"
         } else {
-            loadSummary = String(
-                format: "Laya FP16 · %.0f MB active (peak %.0f MB)",
-                activeMB,
-                peakMB
-            )
+            let backend = Self.compilationEnabled ? "compiled" : "eager"
+            loadSummary = "Laya FP16 · \(backend) graph · "
+                + "\(Int(activeMB.rounded())) MB active (peak \(Int(peakMB.rounded())) MB)"
         }
         print("[Laya] \(loadSummary)")
 
@@ -472,6 +492,35 @@ private final class LayaAgent: @unchecked Sendable {
         }
     }
 
+    /// Runs the decision model, preferring the compiled graph. If MLX refuses
+    /// to compile it, fall back to eager execution for the rest of the session
+    /// instead of trapping.
+    private func forward(_ batch: LayaBatch) -> MLXArray {
+        if let compiledForward, !compiledGraphFailed {
+            do {
+                return try withError {
+                    compiledForward(
+                        batch.inputIDs,
+                        batch.attentionMask,
+                        batch.markerPositions,
+                        batch.markerMask,
+                        batch.questionTypes
+                    )
+                }
+            } catch {
+                compiledGraphFailed = true
+                print("[Laya] compiled graph unavailable (\(error)) — using eager execution")
+            }
+        }
+        return model(
+            inputIDs: batch.inputIDs,
+            attentionMask: batch.attentionMask,
+            markerPositions: batch.markerPositions,
+            markerMask: batch.markerMask,
+            questionTypes: batch.questionTypes
+        )
+    }
+
     private func unsafeProbabilities(
         for texts: [String]
     ) throws -> (values: [Float], tokenizeMs: Double, modelMs: Double) {
@@ -481,13 +530,7 @@ private final class LayaAgent: @unchecked Sendable {
         let tokenizeMs = Self.milliseconds(since: tokenizeStarted)
 
         let modelStarted = ContinuousClock.now
-        let logits = model(
-            inputIDs: batch.inputIDs,
-            attentionMask: batch.attentionMask,
-            markerPositions: batch.markerPositions,
-            markerMask: batch.markerMask,
-            questionTypes: batch.questionTypes
-        )
+        let logits = forward(batch)
         let unsafeTemperature = temperature(questionType: 2, optionCount: 2)
         let probabilities = softmax(logits[0 ..< texts.count, 0 ..< 2] / unsafeTemperature, axis: -1)
         eval(probabilities)
@@ -506,13 +549,7 @@ private final class LayaAgent: @unchecked Sendable {
         let tokenizeMs = Self.milliseconds(since: tokenizeStarted)
 
         let modelStarted = ContinuousClock.now
-        let logits = model(
-            inputIDs: batch.inputIDs,
-            attentionMask: batch.attentionMask,
-            markerPositions: batch.markerPositions,
-            markerMask: batch.markerMask,
-            questionTypes: batch.questionTypes
-        )
+        let logits = forward(batch)
         let categoryTemperature = temperature(questionType: 0, optionCount: 8)
         let probabilities = softmax(logits[0 ..< texts.count, 0 ..< 8] / categoryTemperature, axis: -1)
         eval(probabilities)
@@ -595,7 +632,14 @@ private final class LayaAgent: @unchecked Sendable {
 
     private func collate(_ items: [LayaPreparedItem]) -> LayaBatch {
         let batchSize = items.count
-        let length = items.map(\.ids.count).max() ?? 0
+        let rawLength = items.map(\.ids.count).max() ?? 0
+        // Bucket sequence lengths to 64-token steps. The compiled graph is
+        // cached per shape, so a bounded set of shapes keeps re-tracing rare
+        // instead of compiling once per exact block length.
+        let length = min(
+            configuration.maxLength,
+            max(64, ((rawLength + 63) / 64) * 64)
+        )
         let markerCount = max(2, items.map(\.markerPositions.count).max() ?? 0)
 
         var inputIDs = Array(repeating: paddingTokenID, count: batchSize * length)
