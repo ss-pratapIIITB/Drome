@@ -4,7 +4,7 @@
 Pipeline per fixture (real pages saved with injected synthetic unsafe units):
 
   1. extract candidates           node extract_blocks.mjs --html … --out blocks.json
-  2. classify candidates          Laya MLX (reporting-aware question, threshold 0.55)
+  2. classify candidates          Laya MLX (shipping news-soft question, threshold 0.55)
                                   or --skip-laya for deterministic hand labels
   3. hide unsafe candidates       node extract_blocks.mjs --html … --hide labels.json
      (same code path the app uses: leaf + resolved section)
@@ -28,10 +28,20 @@ REPORTS = HERE / "reports"
 sys.path.insert(0, str(HERE))
 
 MODEL_ID = "aac6fef/laya-mlx"
-VARIANT = "reporting_aware"
+VARIANT = "baseline"
 THRESHOLD = 0.55
 CATEGORY_THRESHOLD = 0.70
 FIXTURES = ["bbc-article", "verge-feed", "aljazeera-article"]
+
+# Page context prepended to every block, mirroring the app (title + host).
+CONTEXTS = {
+    "bbc-article": 'Article: "BBC News" — bbc.co.uk',
+    "verge-feed": 'Article: "The Verge" — theverge.com',
+    "aljazeera-article": (
+        'Article: "European, Middle East ministers urge US-Iran diplomacy, not new '
+        'attacks" — aljazeera.com'
+    ),
+}
 
 
 def run_node_extract(html: Path, out: Path) -> list[dict]:
@@ -42,12 +52,17 @@ def run_node_extract(html: Path, out: Path) -> list[dict]:
     return json.loads(out.read_text())
 
 
-def classify_laya(texts: list[str]) -> list[dict]:
+def classify_laya(texts: list[str], context: str | None = None) -> list[dict]:
     import laya_mlx as laya
     from prompts import VARIANTS, questions_for, state_for
 
     agent = laya.load(MODEL_ID)
     states = [state_for(VARIANT, text) for text in texts]
+    if context:
+        states = [
+            f"{context}\n\n{state}" if isinstance(state, str) else state
+            for state in states
+        ]
     questions = questions_for(VARIANT)
     started = time.perf_counter()
     results = agent.predict_batch(states, questions, batch_size=4)
@@ -74,10 +89,18 @@ def labels_for(name: str, blocks: list[dict], ground: dict, use_laya: bool) -> d
         yes = [b["text"] for b in blocks if any(g.split("—")[-1].strip()[:20] in b["text"] or g[:20] in b["text"] for g in ground["hide"])]
         no = [b["text"] for b in blocks if b["text"] not in yes]
         return {"hide": yes, "keep": no[:60]}
-    preds = classify_laya([b["text"] for b in blocks])
+    preds = classify_laya([b["text"] for b in blocks], CONTEXTS.get(name))
     hide, keep, missed = [], [], []
     for b, p in zip(blocks, preds):
-        (hide if p["unsafe"] else keep).append(b["text"])
+        unsafe = p["unsafe"]
+        if (
+            unsafe
+            and b.get("heading")
+            and p["unsafe_prob"] < 0.85
+            and p["category"] not in {"adult", "self_harm"}
+        ):
+            unsafe = False
+        (hide if unsafe else keep).append(b["text"])
         if any(g[:20] in b["text"] for g in ground["hide"]) and not p["unsafe"]:
             missed.append(b["text"][:60])
     if missed:

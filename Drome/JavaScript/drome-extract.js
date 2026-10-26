@@ -33,6 +33,7 @@
     // aria-label / title text so an unsafe thumbnail or poster is hidden like
     // any text block. Media without descriptive text stays untouched.
     const MEDIA_TAGS = new Set(['IMG', 'VIDEO']);
+    const HEADING_TAGS = new Set(['H1', 'H2', 'H3', 'H4']);
 
     // Explicit terms that make even a very short alt text worth classifying.
     // Most explicit images carry no descriptive alt at all, but when they do
@@ -196,7 +197,8 @@
                     id: mediaID,
                     text: mediaText.slice(0, MAX_TEXT),
                     xpath: "//*[@data-drome-block-id='" + mediaID + "']",
-                    fingerprint: mediaFingerprint
+                    fingerprint: mediaFingerprint,
+                    heading: false
                 });
                 if (candidates.length >= MAX_CANDIDATES) break;
                 continue;
@@ -225,7 +227,8 @@
                 id: id,
                 text: text.slice(0, MAX_TEXT),
                 xpath: "//*[@data-drome-block-id='" + id + "']",
-                fingerprint: textFingerprint
+                fingerprint: textFingerprint,
+                heading: HEADING_TAGS.has(el.tagName)
             });
             if (candidates.length >= MAX_CANDIDATES) break;
         }

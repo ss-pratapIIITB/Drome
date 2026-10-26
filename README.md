@@ -77,7 +77,7 @@ See [`docs/laya-mlx-swift.md`](docs/laya-mlx-swift.md) for the model port, runti
 1. `drome-extract.js` walks visible block elements, keeps leaf text blocks, drops navigation/footer/code/high-link-density noise, and deduplicates repeated text. Container-sized blocks (> 1200 chars) and UI shells containing form controls are skipped; widget rows (`option` / `menuitem`) hide individually, so a flagged search suggestion never takes the search bar with it. Images and videos with descriptive `alt` / `aria-label` / `title` text become blocks of their own.
 2. Qualifying blocks are queued in `PageScanSession` with a stable ID and content fingerprint.
 3. A keyword guard handles short blocks and provides a fallback if the model cannot load.
-4. Laya evaluates a batch of blocks with the unsafe question; the category question runs only for blocks that cross the threshold.
+4. Laya evaluates a batch of blocks with the unsafe question; each block is prefixed with page context (title + host) so factual news about energy, markets, conflict, or health is not judged as alarming in isolation. Headlines additionally need ≥ 0.85 confidence (unless the category is adult or self-harm) before being hidden.
 5. Labels are applied to the extracted block elements in one DOM pass, so hiding is reversible and never reloads the page.
 6. Visible images and video posters are cropped from a WebView snapshot and classified by the bundled NSFW model; flagged media is hidden with the same mechanism.
 7. Toggling **Hide Unsafe Content** restores or hides the same elements without rescanning.

@@ -131,6 +131,29 @@ check verdicts with the `eval/` harness where accuracy could move.
 | Batch size 4 → 8 | Deferred | Would amortize per-batch overhead but changes how quickly the page updates while scrolling. Revisit only if scan cadence can absorb it. |
 | Threshold / option-wording sweep | Pending (accuracy track) | The false positives seen on real news text are classifier decisions, not hiding bugs; sweep against labeled fixtures with repeats. |
 
+## Accuracy experiments (September–October 2026)
+
+The false positives reported on real news ("energy security" coverage reading as
+negative) were investigated on a saved CNA commentary article (61 blocks) plus
+the synthetic unsafe fixtures. Prompt variants were compared on the same text.
+
+| Change | Singapore article flags | Synthetic detection | Verdict |
+| --- | --- | --- | --- |
+| Shipping prompt (baseline) | 4/61 | strong (urgency/doom/panic/gore) | too noisy on news |
+| `reporting_aware` / `reader_impact` / `strict_graphic` (longer instructions) | 6/66 (unchanged) | unchanged | no effect |
+| Longer "energy carve-out" instructions | 46–51/61 | worse | actively harmful |
+| Short news-soft prompt | 1/61 | lost urgency, doom, panic, outrage; new Verge FP | too much recall loss |
+| **Page context** (title + host prepended, prompt unchanged) | **1/61** | keeps gore, ad, panic; loses one doom sample | **shipped** |
+| **Heading guard** (headlines need ≥ 0.85, adult/self-harm exempt) | **0/61** | unchanged | **shipped** |
+
+Takeaways: this checkpoint's decisions are extremely sensitive to prompt length
+and wording — longer instructions are not "gentler", they can flip far more
+blocks. Structural context (what page the block sits on, whether it is a
+headline) is a more reliable lever than prompt rewriting. The eval harness now
+mirrors both the context prefix and the heading threshold, and excludes
+screen-reader-only text from the visible probe (it previously made a hidden
+headline look visible).
+
 What the data says so far: tokenization was a meaningful per-block cost and is
 now cached; in steady state the model dominates; compiled graphs and padding
 make it worse, not better.

@@ -5,6 +5,9 @@ struct PageScanCandidate: Codable, Equatable {
     let xpath: String
     let text: String
     let fingerprint: String
+    /// True for H1–H4. Headlines need a higher confidence before they are
+    /// hidden, so a news headline is not removed because it mentions attacks.
+    let heading: Bool?
 }
 
 struct PageScanSession {

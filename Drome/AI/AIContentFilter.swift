@@ -48,8 +48,14 @@ final class AIContentFilter {
     }
 
     /// Classifies a batch in one model call. Results keep the input order and are
-    /// `nil` for blocks shorter than `minBlockLength`.
-    func classifyBatch(texts rawTexts: [String], useLaya: Bool) async -> [ContentClassificationResult?] {
+    /// `nil` for blocks shorter than `minBlockLength`. `pageContext` (title +
+    /// host) is prepended to each block so legitimate news is not judged as
+    /// alarming in isolation.
+    func classifyBatch(
+        texts rawTexts: [String],
+        useLaya: Bool,
+        pageContext: String? = nil
+    ) async -> [ContentClassificationResult?] {
         lastLayaTiming = nil
         var cleanedTexts = [String?](repeating: nil, count: rawTexts.count)
         var results = [ContentClassificationResult?](repeating: nil, count: rawTexts.count)
@@ -89,7 +95,11 @@ final class AIContentFilter {
         guard !pendingTexts.isEmpty else { return results }
 
         do {
-            let responses = try await layaRuntime.classifyBatch(pendingTexts)
+            let preparedTexts = pendingTexts.map { text -> String in
+                guard let pageContext, !pageContext.isEmpty else { return text }
+                return pageContext + "\n\n" + text
+            }
+            let responses = try await layaRuntime.classifyBatch(preparedTexts)
             if let first = responses.first {
                 lastLayaTiming = LayaBatchTiming(
                     blocks: pendingTexts.count,

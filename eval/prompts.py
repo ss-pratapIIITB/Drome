@@ -29,6 +29,11 @@ BASELINE_INSTRUCTION = (
     "adult content, outrage bait, alarming claims, or high-pressure urgency?"
 )
 
+# The app prepends page context (title + host) to each block before
+# classification; this keeps legitimate news from reading as "unsafe" while
+# leaving the question wording unchanged.
+SHIPPING_INSTRUCTION = BASELINE_INSTRUCTION
+
 VARIANTS: dict[str, dict[str, Any]] = {
     "baseline": {
         "unsafe": BASELINE_INSTRUCTION,

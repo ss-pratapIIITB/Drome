@@ -354,7 +354,8 @@ final class WebViewCoordinator: NSObject {
 
             let results = await aiFilter?.classifyBatch(
                 texts: batch.map(\.text),
-                useLaya: useLaya
+                useLaya: useLaya,
+                pageContext: pageContext(for: webView)
             ) ?? []
             if let timing = aiFilter?.lastLayaTiming {
                 log("⏱ \(timing.blocks) blocks — tokenize \(Int(timing.tokenizeMs.rounded())) ms · model \(Int(timing.modelMs.rounded())) ms")
@@ -370,21 +371,33 @@ final class WebViewCoordinator: NSObject {
                     confidence: nil,
                     latencyMs: nil
                 )
+                // Headlines anchor the page: a borderline news-text verdict
+                // must not remove one while the article body stays, which
+                // reads as a glitch. Adult and self-harm remain decisive.
+                var isSafe = result.isSafe
+                var reason = result.reason
+                if candidate.heading == true, !isSafe,
+                   (result.confidence ?? 1) < 0.85,
+                   reason != "Adult content",
+                   reason != "Self-harm content" {
+                    isSafe = true
+                    reason = "News heading"
+                }
                 pageSession?.markProcessed(candidate)
                 updates.append(JavaScriptInjector.LabelUpdate(
                     xpath: candidate.xpath,
                     fingerprint: candidate.fingerprint,
-                    isSafe: result.isSafe,
-                    reason: result.reason,
+                    isSafe: isSafe,
+                    reason: reason,
                     hideUnsafe: hideUnsafe
                 ))
 
                 let preview = String(candidate.text.prefix(60))
-                log("[\(result.method)] \(result.isSafe ? "✅" : "🔴") \"\(preview)\" — \(result.reason)")
+                log("[\(result.method)] \(isSafe ? "✅" : "🔴") \"\(preview)\" — \(reason)")
                 devToolsVM?.addAIResult(AIResult(
                     xpath: candidate.xpath,
-                    isSafe: result.isSafe,
-                    reason: result.reason,
+                    isSafe: isSafe,
+                    reason: reason,
                     preview: preview
                 ))
             }
@@ -425,6 +438,18 @@ final class WebViewCoordinator: NSObject {
                 continuation.resume(returning: result as? String)
             }
         }
+    }
+
+    /// Context prepended to each block for classification. Facts about the
+    /// page (title + host) stop legitimate news from reading as alarming in
+    /// isolation, without weakening the question itself.
+    private func pageContext(for webView: WKWebView) -> String? {
+        let title = (webView.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let host = webView.url?.host ?? ""
+        if title.isEmpty && host.isEmpty { return nil }
+        if title.isEmpty { return "Article on \(host)." }
+        if host.isEmpty { return "Article: \"\(title)\"." }
+        return "Article: \"\(title)\" — \(host)."
     }
 
     private func log(_ message: String) {
@@ -743,7 +768,8 @@ extension WebViewCoordinator: WKScriptMessageHandler {
             id: id,
             xpath: xpath,
             text: text,
-            fingerprint: fingerprint
+            fingerprint: fingerprint,
+            heading: dict["heading"] as? Bool
         )
         if pageSession?.enqueue(candidate) == true {
             devToolsVM?.aiTotalCount += 1

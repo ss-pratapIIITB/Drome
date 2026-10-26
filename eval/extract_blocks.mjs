@@ -66,7 +66,35 @@ try {
           .map((v) => v || '').join(' '));
       const beforeMedia = mediaEls
         .map(mediaOf).filter((t) => t.length >= 25).join(' ');
-      const before = norm(document.body.innerText + ' ' + beforeMedia);
+      // Rendered text only: innerText still includes visually hidden
+      // screen-reader labels (clipped, not display:none), which made a hidden
+      // headline look "still visible".
+      const visibleText = () => {
+        const skipClass = /(screen-reader|sr-only|visually-hidden|a11y|offscreen)/i;
+        const rendered = (el) => {
+          const style = getComputedStyle(el);
+          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+          if (style.clip && style.clip !== 'auto') return false;
+          if (style.clipPath && style.clipPath !== 'none') return false;
+          return true;
+        };
+        const parts = [];
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          if (!node.data.trim()) continue;
+          let p = node.parentElement;
+          let ok = true;
+          while (p && p !== document.body) {
+            const cls = p.getAttribute && (p.getAttribute('class') || '');
+            if ((cls && skipClass.test(cls)) || !rendered(p)) { ok = false; break; }
+            p = p.parentElement;
+          }
+          if (ok) parts.push(node.data);
+        }
+        return norm(parts.join(' '));
+      };
+      const before = norm(visibleText() + ' ' + beforeMedia);
       const blocks = window.__dromeExtract.collect(document.body);
       const hiddenSubjects = [];
       const hiddenUnitEls = [];
@@ -84,11 +112,11 @@ try {
         } catch (e) {}
       });
 
-      // body.innerText excludes display:none sections — a safe "visible" probe.
+      // Rendered text excludes display:none sections — a safe "visible" probe.
       const afterMedia = mediaEls
         .filter((m) => !m.closest('.__drome_unsafe_hidden'))
         .map(mediaOf).filter((t) => t.length >= 25).join(' ');
-      const after = norm(document.body.innerText + ' ' + afterMedia);
+      const after = norm(visibleText() + ' ' + afterMedia);
       const needleOf = (frag) => norm(frag).slice(0, 40);
       const remaining = labels.hide
         .map((frag) => ({ fragment: frag.slice(0, 60), visible: after.includes(needleOf(frag)) }))
