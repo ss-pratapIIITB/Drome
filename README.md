@@ -74,7 +74,7 @@ See [`docs/laya-mlx-swift.md`](docs/laya-mlx-swift.md) for the model port, runti
 
 ## How the filter works
 
-1. `drome-extract.js` walks visible block elements, keeps leaf text blocks, drops navigation/footer/code/high-link-density noise, and deduplicates repeated text. Images and videos with descriptive `alt` / `aria-label` / `title` text become blocks of their own.
+1. `drome-extract.js` walks visible block elements, keeps leaf text blocks, drops navigation/footer/code/high-link-density noise, and deduplicates repeated text. Container-sized blocks (> 1200 chars) and UI shells containing form controls are skipped; widget rows (`option` / `menuitem`) hide individually, so a flagged search suggestion never takes the search bar with it. Images and videos with descriptive `alt` / `aria-label` / `title` text become blocks of their own.
 2. Qualifying blocks are queued in `PageScanSession` with a stable ID and content fingerprint.
 3. A keyword guard handles short blocks and provides a fallback if the model cannot load.
 4. Laya evaluates a batch of blocks with the unsafe question; the category question runs only for blocks that cross the threshold.

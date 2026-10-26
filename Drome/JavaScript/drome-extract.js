@@ -8,6 +8,10 @@
     const MIN_LENGTH = 25;
     const MAX_CANDIDATES = 80;
     const MAX_TEXT = 500;
+    // A real content block is a paragraph-sized unit. Larger elements are
+    // layout containers (overlays, shells) and must not be classified or hidden
+    // as a single unit.
+    const MAX_BLOCK_CHARS = 1200;
 
     const SKIP_TAGS = new Set([
         'SCRIPT', 'STYLE', 'NOSCRIPT', 'CODE', 'PRE', 'SVG', 'MATH',
@@ -137,6 +141,12 @@
                     if (!isVisible(node)) return NodeFilter.FILTER_REJECT;
                     return node.querySelector('img') ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_REJECT;
                 }
+                if (node.tagName === 'FORM') {
+                    // Descend into forms: search suggestions and other rows live
+                    // there, and they must be candidates in their own right so
+                    // the form shell itself is never the thing that gets hidden.
+                    return isVisible(node) ? NodeFilter.FILTER_SKIP : NodeFilter.FILTER_REJECT;
+                }
                 if (SKIP_TAGS.has(node.tagName)) return NodeFilter.FILTER_REJECT;
                 if (!isVisible(node)) return NodeFilter.FILTER_REJECT;
                 return NodeFilter.FILTER_ACCEPT;
@@ -192,9 +202,15 @@
                 continue;
             }
 
-            const text = normalize(el.innerText || el.textContent || '');
+            // innerText only: textContent leaks CSS from inline <style> and
+            // hidden template nodes into container blocks.
+            const text = normalize(el.innerText || '');
             if (text.length < MIN_LENGTH) continue;
+            if (text.length > MAX_BLOCK_CHARS) continue;
             if (!/\p{L}/u.test(text)) continue;
+            // A block that contains form controls is a UI shell (search bar,
+            // sign-in card), never a content unit to hide.
+            if (el.querySelector('input, textarea, select')) continue;
             if (seenText.has(text)) continue;
 
             const linkChars = linkCharacterCount(el);
@@ -241,6 +257,14 @@
         'BODY', 'HTML', 'MAIN', 'ARTICLE', 'SECTION', 'FORM', 'UL', 'OL',
         'TABLE', 'TD', 'TR', 'THEAD', 'TBODY', 'HEADER'
     ]);
+    // Widget/navigation shells are never units to hide: climbing into a search
+    // bar, listbox or menu would take their controls with the flagged row.
+    const SECTION_WIDGET_ROLES = new Set([
+        'search', 'combobox', 'textbox', 'listbox', 'menu', 'menubar',
+        'toolbar', 'tablist', 'dialog', 'alertdialog', 'grid', 'tree'
+    ]);
+    // One-step absorbable widget items: hide the row itself, not its container.
+    const SECTION_ITEM_ROLES = new Set(['option', 'menuitem', 'treeitem']);
     const SECTION_MAX_CARD_CHARS = 900;  // a unit cannot wrap more text than this
     const SECTION_UNIT_CHILDREN = 6;     // max element children of a unit-wrapping parent
     const SECTION_RIDE_ALONG = 120;      // max length of a sibling caption absorbed with the unit
@@ -343,6 +367,14 @@
                 textLength(parent) > SECTION_MAX_CARD_CHARS) break;
             const role = parent.getAttribute('role');
             if (role === 'main' || role === 'contentinfo' || role === 'list') break;
+            if (parent.tagName === 'FORM') break;
+            if (parent.querySelector('input, textarea, select')) break;
+            if (role && SECTION_ITEM_ROLES.has(role)) {
+                // The row is the unit: absorb it and stop before the shell.
+                current = parent;
+                break;
+            }
+            if (role && SECTION_WIDGET_ROLES.has(role)) break;
             if (repeatedUnit(current)) break;
 
             const parentLen = textLength(parent);

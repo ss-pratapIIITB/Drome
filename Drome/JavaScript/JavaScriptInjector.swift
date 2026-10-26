@@ -441,7 +441,7 @@ enum JavaScriptInjector {
             const vh = window.innerHeight || 0;
             const out = [];
             const els = document.querySelectorAll('img, video');
-            for (let i = 0; i < els.length && out.length < 12; i++) {
+            for (let i = 0; i < els.length && out.length < 8; i++) {
                 const el = els[i];
                 if (el.getAttribute('data-drome-media-flag') === '1') continue;
                 const r = el.getBoundingClientRect();

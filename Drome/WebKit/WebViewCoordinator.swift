@@ -256,7 +256,7 @@ final class WebViewCoordinator: NSObject {
     }
 
     private func screenVisibleImages(webView: WKWebView) async {
-        guard hideUnsafe, browserVM?.aiRemoveUnsafe == true, isPageActive else { return }
+        guard hideUnsafe, browserVM?.aiRemoveUnsafe == true, isPageActive, !webView.isLoading else { return }
         guard let json = await evalJS(webView, JavaScriptInjector.visibleImagesJS()),
               let data = json.data(using: .utf8),
               let items = try? JSONDecoder().decode([VisibleImage].self, from: data),
