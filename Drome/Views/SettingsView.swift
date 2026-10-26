@@ -37,6 +37,11 @@ struct SettingsView: View {
                             browserVM.applyAISettingsToCurrentPage()
                         }
 
+                        Toggle(isOn: $browserVM.aiScreenImages) {
+                            Label("Screen Images", systemImage: "photo.badge.checkmark")
+                        }
+                        .padding(.leading, 24)
+
                         NavigationLink {
                             LayaMLXSettingsView()
                         } label: {

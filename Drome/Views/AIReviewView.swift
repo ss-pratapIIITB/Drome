@@ -74,6 +74,7 @@ struct AIReviewView: View {
                     .onChange(of: browserVM.aiShowScanMarkers) { _, _ in
                         browserVM.applyAISettingsToCurrentPage()
                     }
+                Toggle("Screen visible images", isOn: $browserVM.aiScreenImages)
             } footer: {
                 Text("With markers off, flagged content simply disappears. Markers add the green/red debug boxes around every scanned block for review.")
             }

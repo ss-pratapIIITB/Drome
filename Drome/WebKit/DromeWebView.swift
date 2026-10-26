@@ -77,6 +77,7 @@ struct DromeWebView: UIViewRepresentable {
         ucc.add(coordinator, name: "dromeNetwork")
         ucc.add(coordinator, name: "dromeAIFilter")
         ucc.add(coordinator, name: "dromeMutation")
+        ucc.add(coordinator, name: "dromeImages")
 
         // Inject bridge at document start. Main-frame only keeps iframe-heavy
         // pages from paying the interception cost.

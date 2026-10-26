@@ -27,6 +27,7 @@
 		69CE11B10C3FBD89F6A584A7 /* ConsoleEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22708312843519B9DDC1094F /* ConsoleEntry.swift */; };
 		7018037059F1CD4B5C3EF985 /* BrowserViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E88DBD9E4031F241BE5E3E0 /* BrowserViewModel.swift */; };
 		71247E4DAE0891970EE905DD /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65223219DD91D8ABE455B6AD /* SettingsView.swift */; };
+		745A945A9E4153B04EB8E69A /* ImageSafetyFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6966C11BE6D12EA8B712F385 /* ImageSafetyFilter.swift */; };
 		7C6F72A00621C2B528D55112 /* AIContentFilterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B6ACEFFDDB5BE1B7C27F5CD /* AIContentFilterTests.swift */; };
 		7D35F9AB67AE521580C2D812 /* BottomToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66BA6BF6626EE196756E55D2 /* BottomToolbarView.swift */; };
 		8237BD7D91804B0100FA1505 /* PageScanSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B907A1E329DE5029DA3EE5CE /* PageScanSessionTests.swift */; };
@@ -39,6 +40,7 @@
 		AC11B7F56B9AC033F7208B70 /* JavaScriptStrings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72634340D62857CCCF84CD52 /* JavaScriptStrings.swift */; };
 		AC2A1DF6DE168B8A9D2EF013 /* BrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3897C1E1B723E9AAB1033B8A /* BrowserView.swift */; };
 		B2B0C109BE3C3F497E748129 /* AIContentFilter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B132409A2ADA6642FA16408 /* AIContentFilter.swift */; };
+		CA8DDA9BF4AEFCD3DDA9D64A /* NSFWClassifier.mlpackage in Sources */ = {isa = PBXBuildFile; fileRef = 80B05C28DBD35B912F12BADA /* NSFWClassifier.mlpackage */; };
 		D0862BBAAAEECAAF2E979A0D /* WebsiteBlockerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D79E988E2FA950DA88B1A7 /* WebsiteBlockerView.swift */; };
 		D89C93CECC19F17AD44AB4A4 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCFC7461A315578535A3164F /* ContentView.swift */; };
 		F3ADB354D96763E100DA42B2 /* BrowserTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */; };
@@ -82,9 +84,11 @@
 		65223219DD91D8ABE455B6AD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		66BA6BF6626EE196756E55D2 /* BottomToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BottomToolbarView.swift; sourceTree = "<group>"; };
 		687128D3FBA2AA8E1D65E866 /* ContentBlocker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentBlocker.swift; sourceTree = "<group>"; };
+		6966C11BE6D12EA8B712F385 /* ImageSafetyFilter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageSafetyFilter.swift; sourceTree = "<group>"; };
 		72634340D62857CCCF84CD52 /* JavaScriptStrings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JavaScriptStrings.swift; sourceTree = "<group>"; };
 		7B09025AAD6417276549D2DF /* DromeTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = DromeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E88DBD9E4031F241BE5E3E0 /* BrowserViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrowserViewModel.swift; sourceTree = "<group>"; };
+		80B05C28DBD35B912F12BADA /* NSFWClassifier.mlpackage */ = {isa = PBXFileReference; path = NSFWClassifier.mlpackage; sourceTree = "<group>"; };
 		86CE86AC380DDE1BA9ABE8C9 /* TabGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabGridView.swift; sourceTree = "<group>"; };
 		91CAB159E7E15BC63F3CD9DF /* DeveloperToolsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeveloperToolsViewModel.swift; sourceTree = "<group>"; };
 		93D79E988E2FA950DA88B1A7 /* WebsiteBlockerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebsiteBlockerView.swift; sourceTree = "<group>"; };
@@ -174,6 +178,7 @@
 			isa = PBXGroup;
 			children = (
 				0B132409A2ADA6642FA16408 /* AIContentFilter.swift */,
+				6966C11BE6D12EA8B712F385 /* ImageSafetyFilter.swift */,
 				36B84EF6F6B65422BA0B229F /* LayaMLXRuntime.swift */,
 				37307843DE4DFA02C5060049 /* PageScanSession.swift */,
 			);
@@ -215,6 +220,7 @@
 				97FFA57CA1D79DC1C55B3DA6 /* BrowserTab.swift */,
 				22708312843519B9DDC1094F /* ConsoleEntry.swift */,
 				97AD4DF60F434CC5F82A2208 /* NetworkEntry.swift */,
+				80B05C28DBD35B912F12BADA /* NSFWClassifier.mlpackage */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -411,10 +417,12 @@
 				9AA89917A18533CB87F42318 /* DromeApp.swift in Sources */,
 				4B60DA7CCC425C443D91628B /* DromeWebView.swift in Sources */,
 				610510F44002039F24F0C041 /* FilterStatusBar.swift in Sources */,
+				745A945A9E4153B04EB8E69A /* ImageSafetyFilter.swift in Sources */,
 				FE1D6A161855A064AD17EE5E /* JavaScriptInjector.swift in Sources */,
 				AC11B7F56B9AC033F7208B70 /* JavaScriptStrings.swift in Sources */,
 				9AB3DE8B43BDDB817FEB69BC /* LayaMLXRuntime.swift in Sources */,
 				05ACBF4D2DFCC3E29D10DFF6 /* LayoutMetrics.swift in Sources */,
+				CA8DDA9BF4AEFCD3DDA9D64A /* NSFWClassifier.mlpackage in Sources */,
 				50D1C1F434BC5FDC1EC6102B /* NetworkEntry.swift in Sources */,
 				A8DA5838FCD858D06FAD3F6F /* NewTabView.swift in Sources */,
 				4B8FE4D52DED4785E15203BD /* PageScanSession.swift in Sources */,

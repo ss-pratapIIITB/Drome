@@ -32,6 +32,11 @@ final class BrowserViewModel: ObservableObject {
     /// simply disappears, markers are opt-in for review.
     @AppStorage("aiShowScanMarkers") var aiShowScanMarkers = false
 
+    /// Screen visible images with the on-device NSFW model. On by default:
+    /// images with no descriptive alt text are otherwise invisible to the
+    /// text classifier.
+    @AppStorage("aiScreenImages") var aiScreenImages = true
+
     // Per-session state (resets on relaunch)
     @Published var readingModeActive = false
 

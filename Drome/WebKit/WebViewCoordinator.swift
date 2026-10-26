@@ -1,6 +1,15 @@
 import WebKit
 import UIKit
 
+private struct VisibleImage: Decodable {
+    let id: String
+    let key: String
+    let x: Double
+    let y: Double
+    let w: Double
+    let h: Double
+}
+
 @MainActor
 final class WebViewCoordinator: NSObject {
     weak var tab: BrowserTab?
@@ -22,6 +31,7 @@ final class WebViewCoordinator: NSObject {
     private var lastSessionURL: URL?
     private var historyRescanTask: Task<Void, Never>?
     private var lastLoggedLoadSummary: String?
+    private var imageSweepTask: Task<Void, Never>?
 
     private let scanBatchSize = 4
 
@@ -153,6 +163,10 @@ final class WebViewCoordinator: NSObject {
         let session = PageScanSession(tabID: tabID, navigationGeneration: pageGeneration)
         pageSession = session
         lastSessionURL = webView.url
+        if browserVM?.aiScreenImages == true {
+            webView.evaluateJavaScript(JavaScriptInjector.imageScrollObserverJS(), completionHandler: nil)
+            scheduleImageSweep(webView: webView)
+        }
         devToolsVM?.clearAIResults()
         webView.evaluateJavaScript(JavaScriptInjector.setUnsafeHiddenJS(hideUnsafe), completionHandler: nil)
         webView.evaluateJavaScript(JavaScriptInjector.injectMutationObserverJS(), completionHandler: nil)
@@ -220,6 +234,97 @@ final class WebViewCoordinator: NSObject {
             guard !Task.isCancelled else { return }
             await self.drainSession(sessionID: sessionID, webView: webView)
         }
+    }
+
+    // MARK: - Image screening
+
+    /// Debounced sweep of visible images through the on-device NSFW model.
+    private func scheduleImageSweep(webView: WKWebView) {
+        guard browserVM?.aiFilterEnabled == true,
+              browserVM?.aiScreenImages == true,
+              browserVM?.aiRemoveUnsafe == true,
+              hideUnsafe,
+              isPageActive,
+              ImageSafetyFilter.shared.isAvailable else { return }
+
+        imageSweepTask?.cancel()
+        imageSweepTask = Task { @MainActor [weak self, weak webView] in
+            try? await Task.sleep(nanoseconds: 450_000_000)
+            guard !Task.isCancelled, let self, let webView else { return }
+            await self.screenVisibleImages(webView: webView)
+        }
+    }
+
+    private func screenVisibleImages(webView: WKWebView) async {
+        guard hideUnsafe, browserVM?.aiRemoveUnsafe == true, isPageActive else { return }
+        guard let json = await evalJS(webView, JavaScriptInjector.visibleImagesJS()),
+              let data = json.data(using: .utf8),
+              let items = try? JSONDecoder().decode([VisibleImage].self, from: data),
+              !items.isEmpty else { return }
+
+        let captureStarted = ContinuousClock.now
+        guard let snapshot = await takeSnapshot(of: webView) else { return }
+        let captureMs = elapsedMilliseconds(since: captureStarted)
+
+        let classifyStarted = ContinuousClock.now
+        let flagged = await Task.detached(priority: .utility) { () -> [String] in
+            var out: [String] = []
+            for item in items {
+                guard let cropped = Self.crop(snapshot, to: item) else { continue }
+                if ImageSafetyFilter.shared.isUnsafe(cropped) {
+                    out.append(item.id)
+                }
+            }
+            return out
+        }.value
+        let modelMs = elapsedMilliseconds(since: classifyStarted)
+
+        let payload = items.map { ["id": $0.id, "key": $0.key] }
+        if let payloadData = try? JSONSerialization.data(withJSONObject: payload),
+           let payloadJSON = String(data: payloadData, encoding: .utf8) {
+            webView.evaluateJavaScript(
+                JavaScriptInjector.mediaVerdictsJS(
+                    itemsJSON: payloadJSON,
+                    flagged: flagged,
+                    hide: true
+                ),
+                completionHandler: nil
+            )
+        }
+
+        log("🖼 \(items.count) images · capture \(Int(captureMs)) ms · model \(Int(modelMs)) ms · flagged \(flagged.count)")
+    }
+
+    private func takeSnapshot(of webView: WKWebView) async -> UIImage? {
+        await withCheckedContinuation { continuation in
+            let configuration = WKSnapshotConfiguration()
+            configuration.rect = webView.bounds
+            webView.takeSnapshot(with: configuration) { image, _ in
+                continuation.resume(returning: image)
+            }
+        }
+    }
+
+    private nonisolated static func crop(_ image: UIImage, to item: VisibleImage) -> CGImage? {
+        guard let source = image.cgImage else { return nil }
+        let scale = CGFloat(source.width) / max(1, image.size.width)
+        let rect = CGRect(
+            x: item.x * scale,
+            y: item.y * scale,
+            width: item.w * scale,
+            height: item.h * scale
+        ).integral
+        let clipped = rect.intersection(
+            CGRect(x: 0, y: 0, width: source.width, height: source.height)
+        )
+        guard clipped.width >= 16, clipped.height >= 16 else { return nil }
+        return source.cropping(to: clipped)
+    }
+
+    private func elapsedMilliseconds(since start: ContinuousClock.Instant) -> Double {
+        let elapsed = ContinuousClock.now - start
+        return Double(elapsed.components.seconds) * 1_000
+            + Double(elapsed.components.attoseconds) / 1e15
     }
 
     private func drainSession(sessionID: UUID, webView: WKWebView) async {
@@ -590,6 +695,10 @@ extension WebViewCoordinator: WKScriptMessageHandler {
                 handleNetworkMessage(message.body)
             case "dromeMutation":
                 handleMutationMessage(message.body)
+            case "dromeImages":
+                if let webView = tab?.webView {
+                    scheduleImageSweep(webView: webView)
+                }
             case "dromeAIFilter":
                 break
             default:

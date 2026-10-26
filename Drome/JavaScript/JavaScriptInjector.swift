@@ -92,6 +92,9 @@ enum JavaScriptInjector {
                     }
                 }
             });
+            document.querySelectorAll('[data-drome-media-flag="1"]').forEach(el => {
+                el.classList.add(className);
+            });
         })();
         """
     }
@@ -411,6 +414,89 @@ enum JavaScriptInjector {
         """
     }
 
+    static func imageScrollObserverJS() -> String {
+        """
+        (function() {
+            if (window.__dromeImageScrollInstalled) return;
+            window.__dromeImageScrollInstalled = true;
+            let timer = null;
+            const ping = function() {
+                clearTimeout(timer);
+                timer = setTimeout(function() {
+                    try { window.webkit.messageHandlers.dromeImages.postMessage({ type: 'scroll' }); } catch (e) {}
+                }, 500);
+            };
+            window.addEventListener('scroll', ping, { passive: true });
+            window.addEventListener('resize', ping, { passive: true });
+        })();
+        """
+    }
+
+    /// Visible images/videos that have not been screened for this src+size yet.
+    /// Returns a JSON array of viewport-relative rects.
+    static func visibleImagesJS() -> String {
+        """
+        (function() {
+            const vw = window.innerWidth || 0;
+            const vh = window.innerHeight || 0;
+            const out = [];
+            const els = document.querySelectorAll('img, video');
+            for (let i = 0; i < els.length && out.length < 12; i++) {
+                const el = els[i];
+                if (el.getAttribute('data-drome-media-flag') === '1') continue;
+                const r = el.getBoundingClientRect();
+                if (!r || r.width < 80 || r.height < 80) continue;
+                const x = Math.max(0, r.left);
+                const y = Math.max(0, r.top);
+                const w = Math.min(vw, r.right) - x;
+                const h = Math.min(vh, r.bottom) - y;
+                if (w <= 0 || h <= 0) continue;
+                if (w * h < 0.5 * r.width * r.height) continue; // mostly offscreen
+                const src = el.currentSrc || el.src || el.poster || '';
+                if (!src) continue;
+                let id = el.getAttribute('data-drome-media-id');
+                if (!id) {
+                    if (!window.__dromeMediaSeq) window.__dromeMediaSeq = 0;
+                    id = 'dm' + (++window.__dromeMediaSeq);
+                    el.setAttribute('data-drome-media-id', id);
+                }
+                const key = src + '|' + Math.round(r.width) + 'x' + Math.round(r.height);
+                if (el.getAttribute('data-drome-media-checked') === key) continue;
+                out.push({ id: id, key: key, x: x, y: y, w: w, h: h });
+            }
+            return JSON.stringify(out);
+        })();
+        """
+    }
+
+    /// Records screened ids and hides the flagged ones.
+    static func mediaVerdictsJS(itemsJSON: String, flagged: [String], hide: Bool) -> String {
+        let flaggedJSON = (try? String(
+            data: JSONSerialization.data(withJSONObject: flagged),
+            encoding: .utf8
+        )) ?? "[]"
+        return """
+        (function() {
+            const items = \(itemsJSON);
+            const flagged = new Set(\(flaggedJSON));
+            const hide = \(hide);
+            const byId = {};
+            document.querySelectorAll('[data-drome-media-id]').forEach(el => {
+                byId[el.getAttribute('data-drome-media-id')] = el;
+            });
+            items.forEach(item => {
+                const el = byId[item.id];
+                if (!el) return;
+                el.setAttribute('data-drome-media-checked', item.key);
+                if (flagged.has(item.id)) {
+                    el.setAttribute('data-drome-media-flag', '1');
+                    if (hide) el.classList.add('__drome_unsafe_hidden');
+                }
+            });
+        })();
+        """
+    }
+
     static func clearAILabelsJS() -> String {
         """
         (function() {
@@ -420,6 +506,11 @@ enum JavaScriptInjector {
                 el.removeAttribute('data-drome-reason');
                 el.removeAttribute('data-drome-fingerprint');
                 el.classList.remove('__drome_unsafe_hidden');
+            });
+            document.querySelectorAll('[data-drome-media-id]').forEach(el => {
+                el.removeAttribute('data-drome-media-id');
+                el.removeAttribute('data-drome-media-flag');
+                el.removeAttribute('data-drome-media-checked');
             });
             document.querySelectorAll('.__drome_unsafe_hidden').forEach(el => {
                 el.classList.remove('__drome_unsafe_hidden');

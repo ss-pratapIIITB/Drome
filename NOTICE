@@ -7,3 +7,5 @@ projects, and a model checkpoint published on Hugging Face.
 - MLX Swift: https://github.com/ml-explore/mlx-swift (MIT)
 - swift-transformers: https://github.com/huggingface/swift-transformers (Apache-2.0)
 - Laya MLX checkpoint: https://huggingface.co/aac6fef/laya-mlx (Apache-2.0)
+- NSFW image classifier (Falconsai nsfw_image_detection, Apache-2.0),
+  converted to int8 Core ML: https://huggingface.co/Falconsai/nsfw_image_detection

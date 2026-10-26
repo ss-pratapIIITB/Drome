@@ -18,7 +18,8 @@ Drome pairs a real WKWebView browser — tabs, developer tools, blockers, downlo
 - **On-device by construction** — the 843 MB FP16 checkpoint downloads once; inference is local and page text never leaves the phone.
 - **DOM-aware removal** — extracts leaf text blocks, so one bad paragraph does not take down the whole article.
 - **Cancellation-aware scanning** — queued work is dropped and late results are rejected when the page changes or the tab loses focus.
-- **Incremental rescans** — mutation observers pick up expanded or dynamically loaded content without reclassifying unchanged blocks.
+- **Incremental rescans** — mutation observers and fingerprint checks skip blocks that were already classified, including back/forward restores.
+- **Image screening** — visible images are cropped from a WebView snapshot and classified by a bundled int8 NSFW model; flagged media hides with the same reversible mechanism.
 - **A real browser around it** — multi-tab browsing, snapshots, ad/tracker blocking, website blocking, dark mode, custom user agents, downloads, and a resizable developer-tools panel.
 
 ## Why this project exists
@@ -78,7 +79,8 @@ See [`docs/laya-mlx-swift.md`](docs/laya-mlx-swift.md) for the model port, runti
 3. A keyword guard handles short blocks and provides a fallback if the model cannot load.
 4. Laya evaluates a batch of blocks with the unsafe question; the category question runs only for blocks that cross the threshold.
 5. Labels are applied to the extracted block elements in one DOM pass, so hiding is reversible and never reloads the page.
-6. Toggling **Hide Unsafe Content** restores or hides the same elements without rescanning.
+6. Visible images and video posters are cropped from a WebView snapshot and classified by the bundled NSFW model; flagged media is hidden with the same mechanism.
+7. Toggling **Hide Unsafe Content** restores or hides the same elements without rescanning.
 
 ## Branch history
 
@@ -148,7 +150,8 @@ A local harness that measures what actually disappears from a page, not just wha
 - After the first model download, page text is classified on-device and is never uploaded by the app.
 - The model is a research artifact, not a clinical or child-safety guarantee. False positives and false negatives are expected.
 - The filter is on by default and can be disabled in Settings → Privacy.
-- Only visible content is scanned: qualifying text blocks, plus images and videos that carry descriptive `alt` / `aria-label` / `title` text. Canvas and media without descriptive text are not inspected.
+- Only visible content is scanned: qualifying text blocks, images and videos with descriptive `alt` / `aria-label` / `title` text, and visible image pixels through the bundled NSFW classifier. Canvas and media without descriptive text are only covered by the image pass, which sees rendered pixels.
+- Image screening is a general classifier (int8 ViT, ~86 MB), not a guarantee: it can miss ambiguous images and occasionally flag benign photos (swimwear, art, fitness). Its threshold lives in `ImageSafetyFilter.swift`.
 - The Laya MLX checkpoint is downloaded from Hugging Face at runtime and its metadata lists Apache-2.0. Review the model card before redistribution.
 
 ## License
