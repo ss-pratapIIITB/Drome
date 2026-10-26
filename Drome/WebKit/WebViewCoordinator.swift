@@ -39,6 +39,8 @@ final class WebViewCoordinator: NSObject {
     // SwiftUI updates cannot race the initial asynchronous rule-list compilation.
     private var desiredAdBlockingEnabled = true
     private var appliedAdBlockingEnabled: Bool?
+    private var desiredHideAdSlots = true
+    private var appliedHideAdSlots: Bool?
     private var isConfiguringAdBlocking = false
 
     init(tab: BrowserTab, devToolsVM: DeveloperToolsViewModel, browserVM: BrowserViewModel) {
@@ -60,27 +62,42 @@ final class WebViewCoordinator: NSObject {
     }
 
     @discardableResult
-    func configureAdBlocking(enabled: Bool, on webView: WKWebView) async -> Bool {
+    func configureAdBlocking(
+        enabled: Bool,
+        hideAdSlots: Bool,
+        on webView: WKWebView
+    ) async -> Bool {
         desiredAdBlockingEnabled = enabled
+        desiredHideAdSlots = hideAdSlots
         guard !isConfiguringAdBlocking else { return false }
 
         isConfiguringAdBlocking = true
         defer { isConfiguringAdBlocking = false }
         var changed = false
 
-        while appliedAdBlockingEnabled != desiredAdBlockingEnabled {
-            let target = desiredAdBlockingEnabled
-            var ruleList: WKContentRuleList?
-            if target {
-                ruleList = try? await ContentBlocker.shared.ruleList()
+        while appliedAdBlockingEnabled != desiredAdBlockingEnabled
+            || appliedHideAdSlots != desiredHideAdSlots {
+            let targetEnabled = desiredAdBlockingEnabled
+            let targetSlots = desiredHideAdSlots
+
+            var ruleLists: [WKContentRuleList] = []
+            if targetEnabled {
+                if let base = try? await ContentBlocker.shared.ruleList() {
+                    ruleLists.append(base)
+                }
+                if targetSlots, let cosmetic = try? await ContentBlocker.shared.cosmeticRuleList() {
+                    ruleLists.append(cosmetic)
+                }
             }
 
-            // The setting may have changed while the rule list was compiling.
-            guard target == desiredAdBlockingEnabled else { continue }
+            // The setting may have changed while the rule lists were compiling.
+            guard targetEnabled == desiredAdBlockingEnabled,
+                  targetSlots == desiredHideAdSlots else { continue }
 
             webView.configuration.userContentController.removeAllContentRuleLists()
-            if let ruleList { webView.configuration.userContentController.add(ruleList) }
-            appliedAdBlockingEnabled = target
+            ruleLists.forEach { webView.configuration.userContentController.add($0) }
+            appliedAdBlockingEnabled = targetEnabled
+            appliedHideAdSlots = targetSlots
             changed = true
         }
 

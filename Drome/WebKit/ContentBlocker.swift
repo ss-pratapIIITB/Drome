@@ -5,7 +5,9 @@ final class ContentBlocker {
     static let shared = ContentBlocker()
 
     private var cachedRuleList: WKContentRuleList?
+    private var cachedCosmeticRuleList: WKContentRuleList?
     private var loadingTask: Task<WKContentRuleList, Error>?
+    private var cosmeticLoadingTask: Task<WKContentRuleList, Error>?
 
     private init() {}
 
@@ -27,17 +29,45 @@ final class ContentBlocker {
         }
     }
 
+    /// Cosmetic layer: hides ad slots and sponsored modules that network
+    /// blocking leaves behind as empty frames.
+    func cosmeticRuleList() async throws -> WKContentRuleList {
+        if let cachedCosmeticRuleList { return cachedCosmeticRuleList }
+        if let cosmeticLoadingTask { return try await cosmeticLoadingTask.value }
+
+        let task = Task {
+            try await compile(
+                identifier: "DromeAdBlockCosmetic",
+                json: cosmeticRulesJSON
+            )
+        }
+        cosmeticLoadingTask = task
+
+        do {
+            let ruleList = try await task.value
+            cachedCosmeticRuleList = ruleList
+            cosmeticLoadingTask = nil
+            return ruleList
+        } catch {
+            cosmeticLoadingTask = nil
+            throw error
+        }
+    }
+
     func invalidateCache() {
         cachedRuleList = nil
+        cachedCosmeticRuleList = nil
         loadingTask?.cancel()
+        cosmeticLoadingTask?.cancel()
         loadingTask = nil
+        cosmeticLoadingTask = nil
     }
 
     private func loadRuleList() async throws -> WKContentRuleList {
         if let cached = try? await lookupRuleList() {
             return cached
         }
-        return try await compileRules()
+        return try await compile(identifier: "DromeAdBlock", json: contentBlockingRulesJSON)
     }
 
     private func lookupRuleList() async throws -> WKContentRuleList? {
@@ -56,11 +86,11 @@ final class ContentBlocker {
 }
 
 @MainActor
-private func compileRules() async throws -> WKContentRuleList {
+private func compile(identifier: String, json: String) async throws -> WKContentRuleList {
     return try await withCheckedThrowingContinuation { cont in
         WKContentRuleListStore.default().compileContentRuleList(
-            forIdentifier: "DromeAdBlock",
-            encodedContentRuleList: contentBlockingRulesJSON
+            forIdentifier: identifier,
+            encodedContentRuleList: json
         ) { ruleList, error in
             if let error {
                 cont.resume(throwing: error)
@@ -134,5 +164,39 @@ private let contentBlockingRulesJSON: String = """
   {"trigger":{"url-filter":"securepubads\\\\.g\\\\.doubleclick\\\\.net"},"action":{"type":"block"}},
   {"trigger":{"url-filter":"media\\\\.net","load-type":["third-party"]},"action":{"type":"block"}},
   {"trigger":{"url-filter":"imrworldwide\\\\.com","load-type":["third-party"]},"action":{"type":"block"}}
+]
+"""
+
+// MARK: - Cosmetic ad rules (hide ad slots and sponsored modules)
+// Only ad-specific containers and known ad frames; generic class matches are
+// avoided so ordinary layout is not hidden.
+private let cosmeticRulesJSON: String = """
+[
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"ins.adsbygoogle"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":".adsbygoogle"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"iframe[src*=\\"doubleclick.net\\"]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"iframe[src*=\\"googlesyndication.com\\"]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"[id^=\\"google_ads\\"]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"[id^=\\"div-gpt-ad\\"]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"[data-ad-slot]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"[data-ad-unit]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"[class*=\\"ad-slot\\"]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"[class*=\\"ad-unit\\"]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"[id^=\\"taboola\\"]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"[class*=\\"taboola\\"]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"[id^=\\"outbrain\\"]"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":".OUTBRAIN"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":".trc_related_container"}},
+  {"trigger":{"url-filter":".*"},"action":{"type":"css-display-none","selector":"amp-ad"}},
+  {"trigger":{"url-filter":"adform\\\\.net","load-type":["third-party"]},"action":{"type":"block"}},
+  {"trigger":{"url-filter":"teads\\\\.tv","load-type":["third-party"]},"action":{"type":"block"}},
+  {"trigger":{"url-filter":"3lift\\\\.com","load-type":["third-party"]},"action":{"type":"block"}},
+  {"trigger":{"url-filter":"33across\\\\.com","load-type":["third-party"]},"action":{"type":"block"}},
+  {"trigger":{"url-filter":"adition\\\\.com","load-type":["third-party"]},"action":{"type":"block"}},
+  {"trigger":{"url-filter":"yieldlab\\\\.net","load-type":["third-party"]},"action":{"type":"block"}},
+  {"trigger":{"url-filter":"adroll\\\\.com","load-type":["third-party"]},"action":{"type":"block"}},
+  {"trigger":{"url-filter":"ad-delivery\\\\.net","load-type":["third-party"]},"action":{"type":"block"}},
+  {"trigger":{"url-filter":"adnxs-simple\\\\.com","load-type":["third-party"]},"action":{"type":"block"}},
+  {"trigger":{"url-filter":"appnexus\\\\.com","load-type":["third-party"]},"action":{"type":"block"}}
 ]
 """

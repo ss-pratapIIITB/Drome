@@ -33,6 +33,7 @@ struct DromeWebView: UIViewRepresentable {
             // Do not start the first request until the default-on blocker is ready.
             await context.coordinator.configureAdBlocking(
                 enabled: browserVM.adBlockEnabled,
+                hideAdSlots: browserVM.hideAdSlots,
                 on: webView
             )
             if let url = tab.url {
@@ -55,9 +56,11 @@ struct DromeWebView: UIViewRepresentable {
         )
 
         let adBlockingEnabled = browserVM.adBlockEnabled
+        let hideAdSlots = browserVM.hideAdSlots
         Task { @MainActor in
             let changed = await context.coordinator.configureAdBlocking(
                 enabled: adBlockingEnabled,
+                hideAdSlots: hideAdSlots,
                 on: webView
             )
             if changed, webView.url != nil {

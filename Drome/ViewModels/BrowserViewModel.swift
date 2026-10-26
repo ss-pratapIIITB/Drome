@@ -20,6 +20,10 @@ final class BrowserViewModel: ObservableObject {
 
     // MARK: - Settings
     @AppStorage("adBlockEnabled") var adBlockEnabled = true
+
+    /// Hide the ad slots and sponsored modules that network blocking leaves
+    /// behind. Applies after the page reloads.
+    @AppStorage("hideAdSlots") var hideAdSlots = true
     @AppStorage("aiFilterEnabled") var aiFilterEnabled = true
     @AppStorage("forceDarkMode") var forceDarkMode = false
     @AppStorage("jsEnabled") var jsEnabled = true

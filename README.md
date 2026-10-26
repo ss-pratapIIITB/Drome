@@ -20,7 +20,7 @@ Drome pairs a real WKWebView browser — tabs, developer tools, blockers, downlo
 - **Cancellation-aware scanning** — queued work is dropped and late results are rejected when the page changes or the tab loses focus.
 - **Incremental rescans** — mutation observers and fingerprint checks skip blocks that were already classified, including back/forward restores.
 - **Image screening** — visible images are cropped from a WebView snapshot and classified by a bundled int8 NSFW model; flagged media hides with the same reversible mechanism.
-- **A real browser around it** — multi-tab browsing, snapshots, ad/tracker blocking, website blocking, dark mode, custom user agents, downloads, and a resizable developer-tools panel.
+- **A real browser around it** — multi-tab browsing, snapshots, network ad/tracker blocking plus cosmetic ad-slot hiding, website blocking, dark mode, custom user agents, downloads, and a resizable developer-tools panel.
 
 ## Why this project exists
 

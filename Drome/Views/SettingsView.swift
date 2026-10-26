@@ -14,6 +14,12 @@ struct SettingsView: View {
                     Toggle(isOn: $browserVM.adBlockEnabled) {
                         Label("Ad & Tracker Blocking", systemImage: "hand.raised.fill")
                     }
+                    if browserVM.adBlockEnabled {
+                        Toggle(isOn: $browserVM.hideAdSlots) {
+                            Label("Hide Ad Slots", systemImage: "rectangle.slash")
+                        }
+                        .padding(.leading, 24)
+                    }
                     Toggle(isOn: $browserVM.aiFilterEnabled) {
                         Label("AI Content Filter", systemImage: "sparkles.rectangle.stack")
                     }
