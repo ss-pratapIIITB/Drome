@@ -18,6 +18,7 @@ private struct AddressBarContent: View {
     @FocusState private var fieldFocused: Bool
     @State private var isEditing = false
     @State private var inputText = ""
+    @State private var selection: TextSelection?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -43,9 +44,13 @@ private struct AddressBarContent: View {
             if editing {
                 Task { @MainActor in
                     fieldFocused = true
+                    // Select the current address so typing replaces it and the
+                    // field behaves like a search box, not a URL editor.
+                    selection = TextSelection(range: inputText.startIndex..<inputText.endIndex)
                 }
             } else {
                 fieldFocused = false
+                selection = nil
             }
         }
         .onChange(of: fieldFocused) { _, focused in
@@ -91,11 +96,11 @@ private struct AddressBarContent: View {
         Group {
             if isEditing {
                 HStack(spacing: 6) {
-                    TextField("Search or enter URL", text: $inputText)
+                    TextField("Search or enter URL", text: $inputText, selection: $selection)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                        .keyboardType(.URL)
-                        .submitLabel(.go)
+                        .keyboardType(.webSearch)
+                        .submitLabel(.search)
                         .font(.subheadline)
                         .focused($fieldFocused)
                         .onSubmit(commitEditing)
@@ -195,9 +200,11 @@ private struct AddressBarContent: View {
             fieldFocused = false
             return
         }
-        let text = inputText
+        let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         isEditing = false
         fieldFocused = false
+        selection = nil
+        guard !text.isEmpty else { return }
         browserVM.navigate(to: text)
     }
 }
